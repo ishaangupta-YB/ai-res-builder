@@ -180,13 +180,6 @@ function HeaderBlock({ data }: { data: ResumeValues }) {
     }
 
     const photoUrl = data.photoUrl;
-    const borderStyle = data.borderStyle ?? "squircle";
-    const photoBorderRadius =
-        borderStyle === "circle"
-            ? "50%"
-            : borderStyle === "square"
-              ? "0px"
-              : "10%";
 
     if (!fullName && !jobTitle && contactItems.length === 0 && !photoUrl)
         return null;
@@ -201,7 +194,7 @@ function HeaderBlock({ data }: { data: ResumeValues }) {
                         src={photoUrl}
                         alt=""
                         className="h-[60px] w-[60px] shrink-0 object-cover"
-                        style={{ borderRadius: photoBorderRadius }}
+                        style={{ borderRadius: "50%" }}
                     />
                 )}
                 <div className="flex-1">

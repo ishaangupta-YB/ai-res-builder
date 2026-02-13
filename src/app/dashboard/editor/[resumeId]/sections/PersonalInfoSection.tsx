@@ -85,7 +85,6 @@ function centerAspectCrop(
 async function createCroppedImageBlob(
     image: HTMLImageElement,
     crop: PixelCrop,
-    fileType: string,
 ): Promise<Blob> {
     const canvas = document.createElement("canvas");
     const scaleX = image.naturalWidth / image.width;
@@ -107,6 +106,14 @@ async function createCroppedImageBlob(
     ctx.imageSmoothingQuality = "high";
     const cropX = crop.x * scaleX;
     const cropY = crop.y * scaleY;
+
+    // Save as a circular image so the stored output matches the crop UI.
+    const radius = Math.min(cropWidth, cropHeight) / 2;
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cropWidth / 2, cropHeight / 2, radius, 0, Math.PI * 2);
+    ctx.closePath();
+    ctx.clip();
     ctx.drawImage(
         image,
         cropX,
@@ -118,11 +125,9 @@ async function createCroppedImageBlob(
         cropWidth,
         cropHeight,
     );
+    ctx.restore();
 
-    const outputMimeType =
-        fileType === "image/png" || fileType === "image/webp"
-            ? fileType
-            : "image/jpeg";
+    const outputMimeType = "image/png";
 
     return new Promise((resolve, reject) => {
         canvas.toBlob(
@@ -141,9 +146,7 @@ async function createCroppedImageBlob(
 
 function getCroppedFileName(file: File): string {
     const baseName = file.name.replace(/\.[^.]+$/, "") || "profile-photo";
-    if (file.type === "image/png") return `${baseName}-cropped.png`;
-    if (file.type === "image/webp") return `${baseName}-cropped.webp`;
-    return `${baseName}-cropped.jpg`;
+    return `${baseName}-cropped.png`;
 }
 
 function FieldRow({
@@ -298,7 +301,6 @@ export default function PersonalInfoSection({
             const croppedImageBlob = await createCroppedImageBlob(
                 cropImageRef.current,
                 completedCrop,
-                selectedPhotoFile.type,
             );
             const croppedFile = new File(
                 [croppedImageBlob],
@@ -579,6 +581,7 @@ export default function PersonalInfoSection({
                                             setCompletedCrop(pixelCrop);
                                         }}
                                         aspect={PHOTO_ASPECT_RATIO}
+                                        circularCrop
                                         keepSelection
                                         minWidth={120}
                                         minHeight={120}
