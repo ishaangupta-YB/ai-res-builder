@@ -39,7 +39,8 @@
 		{
 			"binding": "DB",
 			"database_name": "ai-resume-app-db",
-			"database_id": "a7f7ca4d-29cc-4242-808c-6c9dffd34312"
+			"database_id": "a7f7ca4d-29cc-4242-808c-6c9dffd34312",
+			"migrations_dir": "drizzle"
 		}
 	],
 	"kv_namespaces": [
