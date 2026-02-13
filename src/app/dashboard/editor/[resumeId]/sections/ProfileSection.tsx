@@ -14,7 +14,7 @@ export default function ProfileSection({
     const charCount = summary.length;
 
     return (
-        <div className="space-y-1.5">
+        <div className="w-full min-w-0 max-w-full space-y-1.5">
             <div className="flex items-center justify-between">
                 <Label htmlFor="summary" className="text-sm font-medium">
                     Professional Summary

@@ -7,9 +7,13 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Printer } from "lucide-react";
+import { useReactToPrint } from "react-to-print";
 import type { ResumeValues } from "@/lib/validation";
 import ResumeTemplate from "./ResumeTemplate";
+import PrintableResume from "./PrintableResume";
 import {
     FONT_FAMILIES,
     PAGE_WIDTH,
@@ -35,8 +39,14 @@ export default function PreviewModal({
     previewSettings,
 }: PreviewModalProps) {
     const containerRef = useRef<HTMLDivElement>(null);
+    const printRef = useRef<HTMLDivElement>(null);
     const [contentHeight, setContentHeight] = useState(0);
     const [containerWidth, setContainerWidth] = useState(PAGE_WIDTH + 48);
+
+    const handlePrint = useReactToPrint({
+        contentRef: printRef,
+        documentTitle: resumeData.title || "Resume",
+    });
 
     const fontScale = previewSettings.fontSize / 10;
     const fontFamilyCss =
@@ -93,12 +103,23 @@ export default function PreviewModal({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="flex h-[90vh] w-[min(96vw,800px)] max-w-none flex-col gap-0 p-0 sm:max-w-none">
                 <DialogHeader className="shrink-0 border-b px-6 py-4">
-                    <DialogTitle>
-                        Resume Preview
-                        <span className="ml-2 text-sm font-normal text-muted-foreground">
-                            {numPages} {numPages === 1 ? "page" : "pages"}
-                        </span>
-                    </DialogTitle>
+                    <div className="flex items-center justify-between">
+                        <DialogTitle>
+                            Resume Preview
+                            <span className="ml-2 text-sm font-normal text-muted-foreground">
+                                {numPages}{" "}
+                                {numPages === 1 ? "page" : "pages"}
+                            </span>
+                        </DialogTitle>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handlePrint()}
+                        >
+                            <Printer className="mr-1.5 h-4 w-4" />
+                            Print / PDF
+                        </Button>
+                    </div>
                 </DialogHeader>
 
                 <div ref={containerRef} className="relative flex-1 overflow-hidden">
@@ -191,6 +212,8 @@ export default function PreviewModal({
                         </div>
                     </ScrollArea>
                 </div>
+
+                <PrintableResume ref={printRef} resumeData={resumeData} />
             </DialogContent>
         </Dialog>
     );

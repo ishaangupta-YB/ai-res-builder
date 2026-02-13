@@ -49,7 +49,7 @@ export default function SkillsSection({
     );
 
     return (
-        <div className="space-y-4">
+        <div className="w-full min-w-0 max-w-full space-y-4">
             <div className="flex gap-2">
                 <div className="flex-1 space-y-1.5">
                     <Label htmlFor="skill-input" className="text-sm font-medium">

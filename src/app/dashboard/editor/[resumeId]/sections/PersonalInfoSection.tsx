@@ -1,9 +1,11 @@
 "use client";
 
+import { useState, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Eye, EyeOff } from "lucide-react";
+import { Camera, Eye, EyeOff, Loader2, X } from "lucide-react";
+import { toast } from "sonner";
 import type { EditorFormProps } from "@/lib/types";
 import type { ReactNode } from "react";
 
@@ -94,6 +96,44 @@ export default function PersonalInfoSection({
     setResumeData,
 }: EditorFormProps) {
     const fieldVisibility = resumeData.fieldVisibility ?? {};
+    const [isUploading, setIsUploading] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setIsUploading(true);
+        try {
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("fileType", "photo");
+            if (resumeData.id) formData.append("resumeId", resumeData.id);
+
+            const res = await fetch("/api/files/upload", {
+                method: "POST",
+                body: formData,
+            });
+            const data: { success?: boolean; url?: string; error?: string } =
+                await res.json();
+
+            if (!res.ok || !data.success) {
+                toast.error(data.error || "Failed to upload photo");
+                return;
+            }
+
+            setResumeData((prev) => ({ ...prev, photoUrl: data.url }));
+        } catch {
+            toast.error("Failed to upload photo");
+        } finally {
+            setIsUploading(false);
+            if (fileInputRef.current) fileInputRef.current.value = "";
+        }
+    }
+
+    function handlePhotoRemove() {
+        setResumeData((prev) => ({ ...prev, photoUrl: undefined }));
+    }
 
     function updateField(key: keyof typeof resumeData, value: string) {
         setResumeData((prev) => ({
@@ -133,7 +173,52 @@ export default function PersonalInfoSection({
     }
 
     return (
-        <div className="space-y-6">
+        <div className="w-full min-w-0 max-w-full space-y-6">
+            {/* Photo upload */}
+            <div className="flex items-center gap-4">
+                <div className="relative">
+                    <button
+                        type="button"
+                        className="relative flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border-2 border-dashed border-muted-foreground/30 bg-muted/50 transition-colors hover:border-primary/50"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isUploading}
+                    >
+                        {resumeData.photoUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                                src={resumeData.photoUrl}
+                                alt="Resume photo"
+                                className="h-full w-full object-cover"
+                            />
+                        ) : isUploading ? (
+                            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                        ) : (
+                            <Camera className="h-6 w-6 text-muted-foreground" />
+                        )}
+                    </button>
+                    {resumeData.photoUrl && !isUploading && (
+                        <button
+                            type="button"
+                            className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground shadow-sm"
+                            onClick={handlePhotoRemove}
+                        >
+                            <X className="h-3 w-3" />
+                        </button>
+                    )}
+                </div>
+                <div className="text-sm text-muted-foreground">
+                    <p className="font-medium text-foreground">Photo</p>
+                    <p className="text-xs">JPG, PNG, or WebP. Max 5MB.</p>
+                </div>
+                <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    onChange={handlePhotoUpload}
+                />
+            </div>
+
             {/* Name fields */}
             <div className="grid gap-4">
                 {PERSONAL_FIELDS.map(({ key, label, type }) => (

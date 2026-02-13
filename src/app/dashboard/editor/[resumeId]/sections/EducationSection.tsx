@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Plus, Trash2, Eye, EyeOff, Pencil, Check, X, Copy } from "lucide-react";
 import type { EditorFormProps } from "@/lib/types";
 import type { ResumeValues } from "@/lib/validation";
@@ -154,7 +155,7 @@ export default function EducationSection({
 
     if (editingIndex !== null && localEntry !== null) {
         return (
-            <div className="space-y-4">
+            <div className="w-full min-w-0 max-w-full space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                     <h4 className="text-sm font-medium">
                         {editingIndex >= entries.length
@@ -254,31 +255,29 @@ export default function EducationSection({
                     </div>
                     <div className="grid gap-3">
                         <div className="space-y-1.5">
-                            <Label htmlFor="edu-start">Start Date</Label>
-                            <Input
-                                id="edu-start"
-                                type="date"
-                                value={localEntry.startDate ?? ""}
-                                onChange={(e) =>
+                            <Label>Start Date</Label>
+                            <DatePicker
+                                value={localEntry.startDate}
+                                onChange={(d) =>
                                     setLocalEntry((p) => ({
                                         ...p!,
-                                        startDate: e.target.value || undefined,
+                                        startDate: d,
                                     }))
                                 }
+                                placeholder="Select start date"
                             />
                         </div>
                         <div className="space-y-1.5">
-                            <Label htmlFor="edu-end">End Date</Label>
-                            <Input
-                                id="edu-end"
-                                type="date"
-                                value={localEntry.endDate ?? ""}
-                                onChange={(e) =>
+                            <Label>End Date</Label>
+                            <DatePicker
+                                value={localEntry.endDate}
+                                onChange={(d) =>
                                     setLocalEntry((p) => ({
                                         ...p!,
-                                        endDate: e.target.value || undefined,
+                                        endDate: d,
                                     }))
                                 }
+                                placeholder="Select end date"
                             />
                         </div>
                     </div>
@@ -303,7 +302,7 @@ export default function EducationSection({
     }
 
     return (
-        <div className="space-y-3">
+        <div className="w-full min-w-0 max-w-full space-y-3">
             <Reorder.Group
                 axis="y"
                 values={entries}

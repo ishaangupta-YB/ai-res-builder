@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Plus, Trash2, Eye, EyeOff, Pencil, Check, X, GripVertical, Copy } from "lucide-react";
 import type { EditorFormProps } from "@/lib/types";
 import type { ResumeValues } from "@/lib/validation";
@@ -152,7 +153,7 @@ export default function CertificatesSection({
 
     if (editingIndex !== null && editCopy !== null) {
         return (
-            <div className="space-y-4">
+            <div className="w-full min-w-0 max-w-full space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                     <h3 className="text-sm font-medium">Edit Certificate</h3>
                     <div className="flex w-full justify-end gap-1 sm:w-auto">
@@ -194,10 +195,10 @@ export default function CertificatesSection({
                     </div>
                     <div className="space-y-2">
                         <Label>Date</Label>
-                        <Input
-                            type="date"
-                            value={editCopy.date ?? ""}
-                            onChange={(e) => setEditCopy((c) => c && { ...c, date: e.target.value })}
+                        <DatePicker
+                            value={editCopy.date}
+                            onChange={(d) => setEditCopy((c) => c && { ...c, date: d })}
+                            placeholder="Select date"
                         />
                     </div>
                     <div className="space-y-2">
@@ -223,7 +224,7 @@ export default function CertificatesSection({
     }
 
     return (
-        <div className="space-y-3">
+        <div className="w-full min-w-0 max-w-full space-y-3">
             <Reorder.Group
                 axis="y"
                 values={certificates}

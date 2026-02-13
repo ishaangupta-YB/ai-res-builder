@@ -1,17 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { formatDistanceToNow } from "date-fns";
-import { Edit, MoreVertical, Trash2, FileText } from "lucide-react";
+import { Edit, MoreVertical, Printer, Trash2 } from "lucide-react";
+import { useReactToPrint } from "react-to-print";
 import { Button } from "@/components/ui/button";
-import {
-    Card,
-    CardContent,
-    CardFooter,
-    CardHeader,
-    CardTitle,
-} from "@/components/ui/card";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -29,15 +24,57 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { deleteResume } from "./actions";
-import type { Resume } from "@/lib/types";
+import { mapToResumeValues } from "@/lib/utils";
+import type { ResumeServerData } from "@/lib/types";
+import ResumeTemplate from "./editor/[resumeId]/ResumeTemplate";
+import PrintableResume from "./editor/[resumeId]/PrintableResume";
+import {
+    PAGE_WIDTH,
+    PAGE_PADDING_X,
+    PAGE_PADDING_Y,
+    FONT_FAMILIES,
+} from "./editor/[resumeId]/ResumePreviewSection";
+import type { PreviewFontFamily } from "./editor/[resumeId]/ResumePreviewSection";
 
 interface ResumeCardProps {
-    resume: Resume;
+    resume: ResumeServerData;
 }
 
 export function ResumeCard({ resume }: ResumeCardProps) {
+    const router = useRouter();
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+    const printRef = useRef<HTMLDivElement>(null);
+    const previewRef = useRef<HTMLDivElement>(null);
+    const [cardWidth, setCardWidth] = useState(300);
+
+    const resumeValues = useMemo(() => mapToResumeValues(resume), [resume]);
+
+    const fontFamilyCss =
+        FONT_FAMILIES.find(
+            (f) =>
+                f.value ===
+                ((resumeValues.fontFamily as PreviewFontFamily) ?? "serif"),
+        )?.css ?? FONT_FAMILIES[0].css;
+    const fontScale = (resumeValues.fontSize ?? 10) / 10;
+    const thumbScale = cardWidth / PAGE_WIDTH;
+
+    useEffect(() => {
+        const el = previewRef.current;
+        if (!el) return;
+        const observer = new ResizeObserver((entries) => {
+            setCardWidth(entries[0]?.contentRect.width ?? 300);
+        });
+        observer.observe(el);
+        return () => observer.disconnect();
+    }, []);
+
+    const handlePrint = useReactToPrint({
+        contentRef: printRef,
+        documentTitle: resume.title || "Resume",
+    });
+
+    const editorHref = `/dashboard/editor/${resume.id}`;
 
     async function handleDelete() {
         setIsDeleting(true);
@@ -50,32 +87,76 @@ export function ResumeCard({ resume }: ResumeCardProps) {
 
     return (
         <>
-            <Card className="group relative flex flex-col transition-all hover:shadow-md">
-                <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
-                    <div className="flex items-center gap-2">
-                        <FileText className="h-4 w-4 text-primary" />
-                        <CardTitle className="text-base font-semibold line-clamp-1">
+            <div className="group relative overflow-hidden rounded-lg border bg-card transition-all hover:shadow-md">
+                {/* Preview thumbnail — use div + onClick to avoid <a> nesting */}
+                <div
+                    ref={previewRef}
+                    role="link"
+                    tabIndex={0}
+                    className="relative block w-full cursor-pointer overflow-hidden bg-white"
+                    style={{ aspectRatio: "210 / 297" }}
+                    onClick={() => router.push(editorHref)}
+                    onKeyDown={(e) => {
+                        if (e.key === "Enter") router.push(editorHref);
+                    }}
+                >
+                    <div
+                        className="pointer-events-none absolute left-0 top-0 origin-top-left"
+                        style={{
+                            width: PAGE_WIDTH,
+                            transform: `scale(${thumbScale})`,
+                            transformOrigin: "top left",
+                        }}
+                    >
+                        <div
+                            style={{
+                                padding: `${PAGE_PADDING_Y}px ${PAGE_PADDING_X}px`,
+                            }}
+                        >
+                            <div style={{ zoom: fontScale }}>
+                                <ResumeTemplate
+                                    resumeData={resumeValues}
+                                    fontFamily={fontFamilyCss}
+                                />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Card footer */}
+                <div className="flex items-center gap-2 border-t px-3 py-2.5">
+                    <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold">
                             {resume.title || "Untitled Resume"}
-                        </CardTitle>
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                            {formatDistanceToNow(resume.updatedAt, {
+                                addSuffix: true,
+                            })}
+                        </p>
                     </div>
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100"
+                                className="h-8 w-8 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
                             >
                                 <MoreVertical className="h-4 w-4" />
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                             <DropdownMenuItem asChild>
-                                <Link
-                                    href={`/dashboard/editor/${resume.id}`}
-                                >
+                                <Link href={editorHref}>
                                     <Edit className="mr-2 h-4 w-4" />
                                     Edit
                                 </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                                onClick={() => handlePrint()}
+                            >
+                                <Printer className="mr-2 h-4 w-4" />
+                                Print / Save PDF
                             </DropdownMenuItem>
                             <DropdownMenuItem
                                 className="text-destructive focus:text-destructive"
@@ -86,40 +167,10 @@ export function ResumeCard({ resume }: ResumeCardProps) {
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
-                </CardHeader>
-                <CardContent className="flex-1 pb-2">
-                    <div className="text-sm text-muted-foreground">
-                        {resume.firstName || resume.lastName ? (
-                            <span>
-                                {[resume.firstName, resume.lastName]
-                                    .filter(Boolean)
-                                    .join(" ")}
-                            </span>
-                        ) : (
-                            <span className="italic">No name set</span>
-                        )}
-                    </div>
-                    {resume.jobTitle && (
-                        <p className="mt-0.5 text-sm text-muted-foreground line-clamp-1">
-                            {resume.jobTitle}
-                        </p>
-                    )}
-                </CardContent>
-                <CardFooter className="pt-2">
-                    <div className="flex w-full items-center justify-between">
-                        <p className="text-xs text-muted-foreground">
-                            {formatDistanceToNow(resume.updatedAt, {
-                                addSuffix: true,
-                            })}
-                        </p>
-                        <Button variant="outline" size="sm" asChild>
-                            <Link href={`/dashboard/editor/${resume.id}`}>
-                                Edit
-                            </Link>
-                        </Button>
-                    </div>
-                </CardFooter>
-            </Card>
+                </div>
+            </div>
+
+            <PrintableResume ref={printRef} resumeData={resumeValues} />
 
             <AlertDialog
                 open={showDeleteDialog}

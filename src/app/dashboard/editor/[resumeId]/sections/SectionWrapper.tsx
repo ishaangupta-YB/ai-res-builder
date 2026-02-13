@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/collapsible";
 import { Eye, EyeOff, ChevronDown, GripVertical, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 
 interface SectionWrapperProps {
     title: string;
@@ -44,6 +44,23 @@ export default function SectionWrapper({
     onDragStart,
     draggable = true,
 }: SectionWrapperProps) {
+    // #region agent log
+    const wrapperRef = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+        if (!open) return;
+        const timer = setTimeout(() => {
+            const el = wrapperRef.current;
+            if (!el) return;
+            const outerDiv = el; // the outer border div
+            const collContent = el.querySelector('[data-slot="collapsible-content"]') as HTMLElement|null;
+            const innerDiv = collContent?.firstElementChild as HTMLElement|null;
+            const childContent = innerDiv?.firstElementChild as HTMLElement|null;
+            fetch('http://127.0.0.1:7242/ingest/54096512-0c9c-409a-a718-08f34671d35a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SectionWrapper.tsx:debug',message:`Section "${title}" widths when open`,data:{title,outerDivClientW:outerDiv.clientWidth,outerDivScrollW:outerDiv.scrollWidth,outerDivOverflow:window.getComputedStyle(outerDiv).overflow,collContentClientW:collContent?.clientWidth,collContentScrollW:collContent?.scrollWidth,collContentOverflow:collContent?window.getComputedStyle(collContent).overflow:null,innerDivClientW:innerDiv?.clientWidth,innerDivScrollW:innerDiv?.scrollWidth,childContentClientW:childContent?.clientWidth,childContentScrollW:childContent?.scrollWidth},timestamp:Date.now()})}).catch(()=>{});
+        }, 600);
+        return () => clearTimeout(timer);
+    }, [open, title]);
+    // #endregion
+
     return (
         <Collapsible
             open={open}
@@ -51,6 +68,7 @@ export default function SectionWrapper({
             className="w-full min-w-0"
         >
             <div
+                ref={wrapperRef}
                 className={cn(
                     "w-full min-w-0 overflow-hidden rounded-lg border bg-card transition-colors",
                     !isVisible && "opacity-60",

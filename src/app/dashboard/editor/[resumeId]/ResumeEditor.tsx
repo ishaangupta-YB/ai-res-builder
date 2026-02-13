@@ -1,12 +1,11 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Reorder, useDragControls } from "framer-motion";
 import useUnloadWarning from "@/hooks/useUnloadWarning";
 import { cn, mapToResumeValues } from "@/lib/utils";
 import type { ResumeValues } from "@/lib/validation";
 import type { ResumeServerData } from "@/lib/types";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 
@@ -166,6 +165,31 @@ export default function ResumeEditor({ resumeToEdit }: ResumeEditorProps) {
         new Set(["personal-info"]),
     );
 
+    // #region agent log
+    const leftPanelRef = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            const panel = leftPanelRef.current;
+            if (!panel) return;
+            const panelRect = panel.getBoundingClientRect();
+            const scrollDiv = panel.firstElementChild as HTMLElement | null;
+            const scrollDivStyle = scrollDiv ? window.getComputedStyle(scrollDiv) : null;
+            const contentDiv = scrollDiv?.firstElementChild as HTMLElement | null;
+            const collapsibleContents = panel.querySelectorAll('[data-slot="collapsible-content"]');
+            const contentWidths: Record<string, number> = {};
+            collapsibleContents.forEach((el, i) => {
+                const state = el.getAttribute('data-state');
+                if (state === 'open') {
+                    contentWidths[`collapsible-${i}-scrollWidth`] = (el as HTMLElement).scrollWidth;
+                    contentWidths[`collapsible-${i}-clientWidth`] = (el as HTMLElement).clientWidth;
+                }
+            });
+            fetch('http://127.0.0.1:7242/ingest/54096512-0c9c-409a-a718-08f34671d35a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ResumeEditor.tsx:debug',message:'Post-fix panel measurements',data:{runId:'post-fix',openSections: Array.from(openSections),panelClientW: panelRect.width,panelScrollW: panel.scrollWidth,scrollDivClientW: scrollDiv?.clientWidth,scrollDivScrollW: scrollDiv?.scrollWidth,scrollDivOverflowX: scrollDivStyle?.overflowX,contentDivClientW: contentDiv?.clientWidth,contentDivScrollW: contentDiv?.scrollWidth,contentWidths},timestamp:Date.now()})}).catch(()=>{});
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [openSections]);
+    // #endregion
+
     const { isSaving, hasUnsavedChanges, lastSaveError } =
         useAutoSaveResume(resumeData);
 
@@ -312,13 +336,14 @@ export default function ResumeEditor({ resumeToEdit }: ResumeEditorProps) {
                 <div className="absolute bottom-0 top-0 flex w-full">
                     {/* LEFT PANEL: Accordion sections (35%) */}
                     <div
+                        ref={leftPanelRef}
                         className={cn(
                             "w-full min-w-0 max-w-full overflow-hidden md:block md:w-[35%] md:max-w-[35%]",
                             showSmResumePreview && "hidden",
                         )}
                     >
-                        <ScrollArea className="h-full">
-                            <div className="w-full min-w-0 max-w-full space-y-2 overflow-x-hidden p-3">
+                        <div className="h-full overflow-y-auto overflow-x-hidden">
+                            <div className="w-full min-w-0 max-w-full space-y-2 p-3">
                                 {/* Fixed top section: cannot be dragged/reordered */}
                                 {renderSection("personal-info", {
                                     draggable: false,
@@ -356,7 +381,7 @@ export default function ResumeEditor({ resumeToEdit }: ResumeEditorProps) {
                                     Add Content
                                 </Button>
                             </div>
-                        </ScrollArea>
+                        </div>
                     </div>
 
                     {/* Divider */}

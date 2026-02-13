@@ -179,28 +179,52 @@ function HeaderBlock({ data }: { data: ResumeValues }) {
         );
     }
 
-    if (!fullName && !jobTitle && contactItems.length === 0) return null;
+    const photoUrl = data.photoUrl;
+    const borderStyle = data.borderStyle ?? "squircle";
+    const photoBorderRadius =
+        borderStyle === "circle"
+            ? "50%"
+            : borderStyle === "square"
+              ? "0px"
+              : "10%";
+
+    if (!fullName && !jobTitle && contactItems.length === 0 && !photoUrl)
+        return null;
 
     return (
         <div className="mb-[2px]">
-            {/* Name + designation */}
-            <div className="flex items-baseline gap-3">
-                <span className="text-[22px] font-bold leading-tight">
-                    {fullName || "Your Name"}
-                </span>
-                {jobTitle && (
-                    <span className="text-[13px] italic opacity-80">
-                        {jobTitle}
-                    </span>
+            <div className="flex gap-3">
+                {/* Photo */}
+                {photoUrl && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                        src={photoUrl}
+                        alt=""
+                        className="h-[60px] w-[60px] shrink-0 object-cover"
+                        style={{ borderRadius: photoBorderRadius }}
+                    />
                 )}
-            </div>
+                <div className="flex-1">
+                    {/* Name + designation */}
+                    <div className="flex items-baseline gap-3">
+                        <span className="text-[22px] font-bold leading-tight">
+                            {fullName || "Your Name"}
+                        </span>
+                        {jobTitle && (
+                            <span className="text-[13px] italic opacity-80">
+                                {jobTitle}
+                            </span>
+                        )}
+                    </div>
 
-            {/* Contact row */}
-            {contactItems.length > 0 && (
-                <div className="mt-[5px] flex flex-wrap items-center gap-x-3 gap-y-[2px] text-[9px] leading-snug">
-                    {contactItems}
+                    {/* Contact row */}
+                    {contactItems.length > 0 && (
+                        <div className="mt-[5px] flex flex-wrap items-center gap-x-3 gap-y-[2px] text-[9px] leading-snug">
+                            {contactItems}
+                        </div>
+                    )}
                 </div>
-            )}
+            </div>
         </div>
     );
 }

@@ -21,6 +21,18 @@ export default async function DashboardPage() {
     const userResumes = await db.query.resumes.findMany({
         where: eq(resumes.userId, session.user.id),
         orderBy: [desc(resumes.updatedAt)],
+        with: {
+            workExperiences: true,
+            educations: true,
+            projects: true,
+            awards: true,
+            publications: true,
+            certificates: true,
+            languages: true,
+            courses: true,
+            resumeReferences: true,
+            interests: true,
+        },
     });
 
     return (
@@ -47,23 +59,24 @@ export default async function DashboardPage() {
 
             {/* Resumes Grid */}
             {userResumes.length > 0 ? (
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4">
                     {/* Create New Card */}
-                    <Card className="group cursor-pointer transition-all hover:shadow-md hover:border-primary/50">
+                    <div className="group overflow-hidden rounded-lg border-2 border-dashed border-muted-foreground/25 bg-card transition-all hover:border-primary/50 hover:shadow-md">
                         <form action={createResume} className="h-full">
                             <button
                                 type="submit"
-                                className="flex h-full w-full flex-col items-center justify-center gap-3 p-6 text-muted-foreground transition-colors group-hover:text-primary"
+                                className="flex w-full flex-col items-center justify-center gap-3 text-muted-foreground transition-colors group-hover:text-primary"
+                                style={{ aspectRatio: "210 / 297" }}
                             >
-                                <div className="rounded-full border-2 border-dashed border-muted-foreground/30 p-3 transition-colors group-hover:border-primary/50">
-                                    <Plus className="h-6 w-6" />
+                                <div className="rounded-full border-2 border-dashed border-muted-foreground/30 p-4 transition-colors group-hover:border-primary/50">
+                                    <Plus className="h-8 w-8" />
                                 </div>
                                 <span className="text-sm font-medium">
                                     Create New Resume
                                 </span>
                             </button>
                         </form>
-                    </Card>
+                    </div>
 
                     {userResumes.map((resume) => (
                         <ResumeCard key={resume.id} resume={resume} />

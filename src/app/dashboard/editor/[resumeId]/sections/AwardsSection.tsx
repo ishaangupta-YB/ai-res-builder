@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Plus, Trash2, Eye, EyeOff, Pencil, Check, X, Copy } from "lucide-react";
 import type { EditorFormProps } from "@/lib/types";
 import type { ResumeValues } from "@/lib/validation";
@@ -151,7 +152,7 @@ export default function AwardsSection({
 
     if (editingIndex !== null && localEntry !== null) {
         return (
-            <div className="space-y-4">
+            <div className="w-full min-w-0 max-w-full space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                     <h4 className="text-sm font-medium">
                         {editingIndex >= entries.length
@@ -225,17 +226,16 @@ export default function AwardsSection({
                         />
                     </div>
                     <div className="space-y-1.5">
-                        <Label htmlFor="award-date">Date</Label>
-                        <Input
-                            id="award-date"
-                            type="date"
-                            value={localEntry.date ?? ""}
-                            onChange={(e) =>
+                        <Label>Date</Label>
+                        <DatePicker
+                            value={localEntry.date}
+                            onChange={(d) =>
                                 setLocalEntry((p) => ({
                                     ...p!,
-                                    date: e.target.value || undefined,
+                                    date: d,
                                 }))
                             }
+                            placeholder="Select date"
                         />
                     </div>
                 </div>
@@ -244,7 +244,7 @@ export default function AwardsSection({
     }
 
     return (
-        <div className="space-y-3">
+        <div className="w-full min-w-0 max-w-full space-y-3">
             <Reorder.Group
                 axis="y"
                 values={entries}

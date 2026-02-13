@@ -11,10 +11,12 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { FileText, Maximize2, Minus, Plus } from "lucide-react";
+import { FileText, Maximize2, Minus, Plus, Printer } from "lucide-react";
+import { useReactToPrint } from "react-to-print";
 import type { ResumeValues } from "@/lib/validation";
 import type { Dispatch, SetStateAction } from "react";
 import ResumeTemplate from "./ResumeTemplate";
+import PrintableResume from "./PrintableResume";
 
 // ---------------------------------------------------------------------------
 // A4 page constants (px at screen resolution)
@@ -85,8 +87,14 @@ export default function ResumePreviewSection({
 
     const measureRef = useRef<HTMLDivElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
+    const printRef = useRef<HTMLDivElement>(null);
     const [contentHeight, setContentHeight] = useState(0);
     const [containerWidth, setContainerWidth] = useState(PAGE_WIDTH + 48);
+
+    const handlePrint = useReactToPrint({
+        contentRef: printRef,
+        documentTitle: resumeData.title || "Resume",
+    });
 
     const fontScale = fontSize / 10;
     const fontFamilyCss =
@@ -211,6 +219,14 @@ export default function ResumePreviewSection({
                     <span className="text-xs text-muted-foreground">
                         {numPages} {numPages === 1 ? "page" : "pages"}
                     </span>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handlePrint()}
+                    >
+                        <Printer className="mr-1.5 h-4 w-4" />
+                        Print
+                    </Button>
                     {onPreviewOpen && (
                         <Button
                             variant="outline"
@@ -363,6 +379,8 @@ export default function ResumePreviewSection({
                     </div>
                 </ScrollArea>
             </div>
+
+            <PrintableResume ref={printRef} resumeData={resumeData} />
         </div>
     );
 }

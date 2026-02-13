@@ -175,7 +175,7 @@ export default function LanguagesSection({
 
     if (editingIndex !== null && editCopy !== null) {
         return (
-            <div className="space-y-4">
+            <div className="w-full min-w-0 max-w-full space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                     <h3 className="text-sm font-medium">Edit Language</h3>
                     <div className="flex w-full justify-end gap-1 sm:w-auto">
@@ -237,7 +237,7 @@ export default function LanguagesSection({
     }
 
     return (
-        <div className="space-y-3">
+        <div className="w-full min-w-0 max-w-full space-y-3">
             <Reorder.Group
                 axis="y"
                 values={languages}
