@@ -2,33 +2,45 @@ import { KVNamespace } from "@cloudflare/workers-types";
 import { betterAuth } from "better-auth";
 import { withCloudflare } from "better-auth-cloudflare";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { openAPI } from "better-auth/plugins";
 import { getDb } from "../db";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
+
+const isDev = process.env.NEXTJS_ENV === "development";
 
 // Define an asynchronous function to build your auth configuration
 async function authBuilder() {
     const dbInstance = await getDb();
+    const ctx = getCloudflareContext();
+    const env = ctx.env as unknown as {
+        GOOGLE_CLIENT_ID: string;
+        GOOGLE_CLIENT_SECRET: string;
+        BETTER_AUTH_URL: string;
+        BETTER_AUTH_SECRET: string;
+        KV: KVNamespace<string>;
+    };
+
     return betterAuth(
         withCloudflare(
             {
                 autoDetectIpAddress: true,
                 geolocationTracking: true,
-                cf: getCloudflareContext().cf,
+                cf: ctx.cf,
                 d1: {
                     db: dbInstance as any,
                     options: {
                         usePlural: true,
-                        debugLogs: true,
+                        debugLogs: isDev,
                     },
                 },
-                kv: process.env.KV as unknown as KVNamespace<string>,
+                kv: env.KV,
             },
             {
+                baseURL: env.BETTER_AUTH_URL,
+                secret: env.BETTER_AUTH_SECRET,
                 socialProviders: {
                     google: {
-                        clientId: process.env.GOOGLE_CLIENT_ID!,
-                        clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+                        clientId: env.GOOGLE_CLIENT_ID,
+                        clientSecret: env.GOOGLE_CLIENT_SECRET,
                     },
                 },
                 rateLimit: {
@@ -42,7 +54,6 @@ async function authBuilder() {
                         },
                     },
                 },
-                plugins: [openAPI()],
             }
         )
     );
@@ -76,7 +87,6 @@ export const auth = betterAuth({
                     clientSecret: process.env.GOOGLE_CLIENT_SECRET || "placeholder",
                 },
             },
-            plugins: [openAPI()],
         }
     ),
 
@@ -84,6 +94,5 @@ export const auth = betterAuth({
     database: drizzleAdapter(process.env.DATABASE as any, {
         provider: "sqlite",
         usePlural: true,
-        debugLogs: true,
     }),
 });

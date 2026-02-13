@@ -94,7 +94,7 @@ export default function LandingPage() {
             <div className="bg-primary border-2 border-black dark:border-white p-2 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] transition-transform group-hover:rotate-12">
               <FileText className="h-6 w-6 text-primary-foreground" />
             </div>
-            <span className="decoration-wavy underline decoration-primary decoration-2 underline-offset-4">AI Resume</span>
+            <span className="decoration-primary decoration-2 underline-offset-4">AI Resume</span>
           </Link>
 
           <nav className="flex items-center gap-6">
