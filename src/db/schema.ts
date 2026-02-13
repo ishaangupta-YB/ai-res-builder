@@ -123,6 +123,31 @@ export const userSubscriptions = sqliteTable("user_subscriptions", {
         .$onUpdateFn(() => new Date()),
 });
 
+export const userFiles = sqliteTable("user_files", {
+    id: text("id")
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    userId: text("user_id").notNull(),
+    resumeId: text("resume_id").references(() => resumes.id, {
+        onDelete: "set null",
+    }),
+    fileType: text("file_type").notNull(), // "photo" | "resume_pdf"
+    r2Key: text("r2_key").notNull().unique(),
+    fileName: text("file_name").notNull(),
+    fileSize: integer("file_size").notNull(),
+    mimeType: text("mime_type").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" })
+        .notNull()
+        .default(sql`(unixepoch())`),
+});
+
+export const userFilesRelations = relations(userFiles, ({ one }) => ({
+    resume: one(resumes, {
+        fields: [userFiles.resumeId],
+        references: [resumes.id],
+    }),
+}));
+
 // Combine all schemas here for migrations
 export const schema = {
     ...authSchema,
@@ -133,4 +158,6 @@ export const schema = {
     educations,
     educationsRelations,
     userSubscriptions,
+    userFiles,
+    userFilesRelations,
 } as const;

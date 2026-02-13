@@ -48,6 +48,12 @@
 			"binding": "KV",
 			"id": "36379a2e3ef24489863474cb7b9f725a"
 		}
+	],
+	"r2_buckets": [
+		{
+			"binding": "R2_BUCKET",
+			"bucket_name": "ai-resume-uploads"
+		}
 	]
 	/**
 	 * Smart Placement

@@ -1,50 +1,55 @@
 "use client";
 
-import React, { useRef } from "react";
 import Link from "next/link";
 import { useSession } from "@/lib/auth-client";
 import { ModeToggle } from "@/components/mode-toggle";
 import { Button } from "@/components/ui/button";
 import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
   ArrowRight,
-  CheckCircle2,
+  Briefcase,
+  Check,
+  ChevronDown,
   FileText,
   Sparkles,
-  User,
-  Wand2,
-  Share2,
-  Download,
-  Terminal,
-  Code2,
-  Cpu,
+  Star,
+  Zap,
 } from "lucide-react";
-import { motion, useScroll, useTransform, useSpring, useInView } from "framer-motion";
-
-// Neobrutalist Card Component
-const NeoCard = ({ children, className = "", hoverEffect = true }: { children: React.ReactNode; className?: string; hoverEffect?: boolean }) => {
-  return (
-    <motion.div
-      whileHover={hoverEffect ? { scale: 1.02, rotate: 1 } : {}}
-      className={`border-4 border-black dark:border-white bg-card text-card-foreground shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:shadow-[8px_8px_0px_0px_rgba(255,255,255,1)] p-6 rounded-none ${className}`}
-    >
-      {children}
-    </motion.div>
-  );
-};
+import { motion, useScroll, useTransform } from "framer-motion";
+import { useRef } from "react";
+import { cn } from "@/lib/utils";
 
 // Neobrutalist Button Component
-const NeoButton = ({ children, variant = "primary", className = "", ...props }: any) => {
-  const baseStyles = "relative inline-flex items-center justify-center px-8 py-3 text-lg font-bold uppercase tracking-widest transition-transform active:translate-y-1 active:translate-x-1 active:shadow-none border-4 border-black dark:border-white rounded-none";
-  
-  const variants = {
-    primary: "bg-primary text-primary-foreground shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] hover:-translate-y-1 hover:-translate-x-1 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] dark:hover:shadow-[6px_6px_0px_0px_rgba(255,255,255,1)]",
-    secondary: "bg-secondary text-secondary-foreground shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] hover:-translate-y-1 hover:-translate-x-1 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] dark:hover:shadow-[6px_6px_0px_0px_rgba(255,255,255,1)]",
-    outline: "bg-background text-foreground shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] hover:-translate-y-1 hover:-translate-x-1 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] dark:hover:shadow-[6px_6px_0px_0px_rgba(255,255,255,1)]",
-  };
+type NeoButtonProps = Omit<React.ComponentProps<typeof Button>, "variant"> & {
+  variant?: "primary" | "secondary" | "outline";
+};
 
+const NeoButton = ({
+  className,
+  variant = "primary",
+  children,
+  ...props
+}: NeoButtonProps) => {
+  const shadcnVariant = variant === "primary" ? "default" : variant;
+  
   return (
     <Button
-      className={`${baseStyles} ${variants[variant as keyof typeof variants] || variants.primary} ${className}`}
+      variant={shadcnVariant}
+      className={cn(
+        "relative border-2 border-foreground font-bold transition-all hover:translate-x-[2px] hover:translate-y-[2px] active:translate-x-[4px] active:translate-y-[4px] active:shadow-none",
+        variant === "primary" &&
+          "bg-primary text-primary-foreground shadow-[4px_4px_0px_0px_var(--color-foreground)] hover:shadow-[2px_2px_0px_0px_var(--color-foreground)]",
+        variant === "secondary" &&
+          "bg-secondary text-secondary-foreground shadow-[4px_4px_0px_0px_var(--color-foreground)] hover:shadow-[2px_2px_0px_0px_var(--color-foreground)]",
+        variant === "outline" &&
+          "bg-background text-foreground shadow-[4px_4px_0px_0px_var(--color-foreground)] hover:bg-accent hover:shadow-[2px_2px_0px_0px_var(--color-foreground)]",
+        className
+      )}
       {...props}
     >
       {children}
@@ -52,295 +57,317 @@ const NeoButton = ({ children, variant = "primary", className = "", ...props }: 
   );
 };
 
-// Marquee Component
-const Marquee = ({ items }: { items: string[] }) => {
+// Neobrutalist Card Component
+const NeoCard = ({ className, children }: { className?: string; children: React.ReactNode }) => {
   return (
-    <div className="relative flex overflow-hidden border-y-4 border-black dark:border-white bg-accent py-4">
-      <motion.div
-        className="flex whitespace-nowrap"
-        animate={{ x: [0, -1000] }}
-        transition={{ repeat: Infinity, duration: 20, ease: "linear" }}
-      >
-        {[...items, ...items, ...items, ...items].map((item, index) => (
-          <span key={index} className="mx-8 text-2xl font-black uppercase tracking-widest text-accent-foreground">
-            {item} ★
-          </span>
-        ))}
-      </motion.div>
-      <div className="absolute inset-y-0 left-0 w-20 bg-gradient-to-r from-accent to-transparent z-10" />
-      <div className="absolute inset-y-0 right-0 w-20 bg-gradient-to-l from-accent to-transparent z-10" />
+    <div
+      className={cn(
+        "relative overflow-hidden rounded-xl border-2 border-foreground bg-card text-card-foreground shadow-[6px_6px_0px_0px_var(--color-foreground)] transition-all hover:-translate-y-1 hover:shadow-[8px_8px_0px_0px_var(--color-foreground)]",
+        className
+      )}
+    >
+      {children}
     </div>
   );
 };
 
 export default function LandingPage() {
   const { data: session } = useSession();
-  const scrollRef = useRef(null);
-  const { scrollYProgress } = useScroll({ target: scrollRef });
-  const scaleX = useSpring(scrollYProgress, { stiffness: 100, damping: 30 });
+  const containerRef = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({
+    target: containerRef,
+    offset: ["start start", "end end"],
+  });
+
+  const y = useTransform(scrollYProgress, [0, 1], ["0%", "50%"]);
 
   return (
-    <div className="min-h-screen bg-background text-foreground font-mono selection:bg-primary selection:text-primary-foreground overflow-x-hidden" ref={scrollRef}>
-      {/* Scroll Progress Bar */}
-      <motion.div
-        className="fixed top-0 left-0 right-0 h-2 bg-primary origin-left z-[100] border-b-2 border-black dark:border-white"
-        style={{ scaleX }}
-      />
+    <div ref={containerRef} className="min-h-screen bg-background font-sans selection:bg-primary selection:text-primary-foreground overflow-x-hidden">
+      {/* Background Grid Pattern */}
+      <div className="fixed inset-0 z-0 pointer-events-none bg-grid-pattern opacity-[0.03]" />
 
       {/* Navbar */}
-      <header className="sticky top-0 z-50 w-full border-b-4 border-black dark:border-white bg-background">
+      <header className="sticky top-0 z-50 w-full border-b-2 border-foreground bg-background/80 backdrop-blur-md">
         <div className="container mx-auto px-4 h-20 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 font-black text-2xl uppercase tracking-tighter group">
-            <div className="bg-primary border-2 border-black dark:border-white p-2 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] transition-transform group-hover:rotate-12">
-              <FileText className="h-6 w-6 text-primary-foreground" />
+          <Link href="/" className="flex items-center gap-2 group">
+            <div className="relative h-10 w-10 overflow-hidden border-2 border-foreground bg-primary shadow-[3px_3px_0px_0px_var(--color-foreground)] transition-transform group-hover:rotate-6">
+              <FileText className="absolute left-1/2 top-1/2 h-6 w-6 -translate-x-1/2 -translate-y-1/2 text-primary-foreground" />
             </div>
-            <span className="decoration-primary decoration-2 underline-offset-4">AI Resume</span>
+            <span className="text-2xl font-black tracking-tighter italic">AI RESUME</span>
           </Link>
 
-          <nav className="flex items-center gap-6">
+          <nav className="flex items-center gap-4">
             <ModeToggle />
             {session ? (
               <Link href="/dashboard">
-                <NeoButton>Dashboard</NeoButton>
+                <NeoButton>DASHBOARD</NeoButton>
               </Link>
             ) : (
               <Link href="/sign-in">
-                <NeoButton variant="secondary">Sign In</NeoButton>
+                <NeoButton>SIGN IN</NeoButton>
               </Link>
             )}
           </nav>
         </div>
       </header>
 
-      <main className="flex-1">
+      <main className="relative z-10">
         {/* Hero Section */}
-        <section className="relative pt-20 pb-32 overflow-hidden bg-grid-pattern">
+        <section className="relative pt-20 pb-32 md:pt-32 md:pb-48 overflow-hidden">
           <div className="container mx-auto px-4 relative z-10">
-            <div className="max-w-4xl mx-auto text-center">
+            <div className="flex flex-col items-center text-center max-w-4xl mx-auto space-y-8">
               <motion.div
-                initial={{ opacity: 0, y: 50, rotate: -5 }}
+                initial={{ opacity: 0, y: 20, rotate: -5 }}
                 animate={{ opacity: 1, y: 0, rotate: 0 }}
-                transition={{ duration: 0.8, type: "spring" }}
-                className="inline-block mb-6"
+                transition={{ duration: 0.5, type: "spring" }}
+                className="inline-block"
               >
-                <span className="bg-secondary text-secondary-foreground px-6 py-2 text-xl font-bold border-4 border-black dark:border-white shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,1)] transform -rotate-2 inline-flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 animate-spin-slow" />
-                  NEXT GEN RESUME BUILDER
+                <span className="inline-flex items-center gap-2 rounded-full border-2 border-foreground bg-secondary px-4 py-1.5 text-sm font-bold shadow-[4px_4px_0px_0px_var(--color-foreground)]">
+                  <Sparkles className="h-4 w-4" />
+                  <span>V2.0 NOW LIVE</span>
                 </span>
               </motion.div>
 
               <motion.h1
-                initial={{ opacity: 0, scale: 0.8 }}
+                initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.8, delay: 0.2, type: "spring" }}
-                className="text-6xl md:text-8xl font-black tracking-tighter mb-8 leading-none"
+                transition={{ duration: 0.6, delay: 0.1 }}
+                className="text-5xl md:text-7xl lg:text-8xl font-black tracking-tighter leading-[0.9]"
               >
-                CRAFT YOUR <br />
-                <span className="text-primary decoration-wavy underline decoration-4 underline-offset-8">FUTURE</span> TODAY.
+                BUILD YOUR <br />
+                <span className="text-primary relative inline-block">
+                  FUTURE
+                  <svg className="absolute w-full h-3 -bottom-1 left-0 text-foreground" viewBox="0 0 100 10" preserveAspectRatio="none">
+                    <path d="M0 5 Q 50 10 100 5" stroke="currentColor" strokeWidth="3" fill="none" />
+                  </svg>
+                </span>{" "}
+                TODAY
               </motion.h1>
 
               <motion.p
-                initial={{ opacity: 0, x: -50 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.8, delay: 0.4 }}
-                className="text-xl md:text-2xl font-bold text-muted-foreground mb-12 max-w-2xl mx-auto bg-background/80 p-4 border-2 border-transparent backdrop-blur-sm"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.2 }}
+                className="text-xl md:text-2xl text-muted-foreground font-medium max-w-2xl border-l-4 border-primary pl-6 text-left md:text-center md:border-l-0 md:pl-0"
               >
-                Stop wasting hours on formatting. Let AI build you a professional, ATS-friendly resume in seconds. Brutally simple. Extremely effective.
+                Stop wrestling with Word docs. Our AI-powered builder crafts ATS-friendly resumes that scream "HIRE ME" in seconds.
               </motion.p>
 
               <motion.div
-                initial={{ opacity: 0, y: 50 }}
+                initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8, delay: 0.6 }}
-                className="flex flex-col sm:flex-row items-center justify-center gap-6"
+                transition={{ duration: 0.6, delay: 0.3 }}
+                className="flex flex-col sm:flex-row items-center gap-6 pt-4"
               >
-                <Link href={session ? "/dashboard" : "/sign-in"}>
-                  <NeoButton className="text-xl px-10 py-6">
-                    Start Building Now <ArrowRight className="ml-2 h-6 w-6" />
+                <Link href={session ? "/dashboard" : "/sign-in"} className="w-full sm:w-auto">
+                  <NeoButton size="lg" className="w-full sm:w-auto text-lg h-14 px-8">
+                    START BUILDING <ArrowRight className="ml-2 h-5 w-5" />
                   </NeoButton>
                 </Link>
-                <Link href="#features">
-                  <NeoButton variant="outline" className="text-xl px-10 py-6">
-                    See How It Works
-                  </NeoButton>
-                </Link>
+                <div className="flex items-center gap-2 text-sm font-bold">
+                  <div className="flex -space-x-3">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="h-10 w-10 rounded-full border-2 border-foreground bg-muted flex items-center justify-center overflow-hidden">
+                         <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${i}`} alt="User" />
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex flex-col items-start leading-tight">
+                    <span className="flex text-primary">
+                      <Star className="h-3 w-3 fill-current" />
+                      <Star className="h-3 w-3 fill-current" />
+                      <Star className="h-3 w-3 fill-current" />
+                      <Star className="h-3 w-3 fill-current" />
+                      <Star className="h-3 w-3 fill-current" />
+                    </span>
+                    <span>LOVED BY 10k+ USERS</span>
+                  </div>
+                </div>
               </motion.div>
             </div>
           </div>
           
           {/* Decorative Elements */}
-          <div className="absolute top-1/4 left-10 w-24 h-24 bg-chart-1 border-4 border-black dark:border-white rounded-full opacity-50 animate-bounce-slow hidden md:block" />
-          <div className="absolute bottom-1/4 right-10 w-32 h-32 bg-chart-2 border-4 border-black dark:border-white rotate-12 opacity-50 animate-pulse hidden md:block" />
-          <div className="absolute top-1/3 right-1/4 w-16 h-16 bg-chart-3 border-4 border-black dark:border-white transform rotate-45 hidden md:block" />
+          <motion.div style={{ y }} className="absolute -z-10 top-1/2 right-[5%] w-64 h-64 bg-primary/20 rounded-full blur-3xl" />
+          <motion.div style={{ y: useTransform(scrollYProgress, [0, 1], ["0%", "-50%"]) }} className="absolute -z-10 bottom-0 left-[5%] w-72 h-72 bg-secondary/30 rounded-full blur-3xl" />
         </section>
 
         {/* Marquee Section */}
-        <Marquee items={["AI Powered", "ATS Friendly", "Instant Export", "Professional Templates", "Smart Analysis", "Get Hired Faster"]} />
+        <section className="border-y-2 border-foreground bg-primary py-4 overflow-hidden">
+          <div className="flex whitespace-nowrap animate-[marquee_20s_linear_infinite]">
+            {[...Array(10)].map((_, i) => (
+              <div key={i} className="flex items-center mx-8 text-primary-foreground font-black text-2xl uppercase italic">
+                <Zap className="mr-2 h-6 w-6 fill-current" />
+                AI POWERED
+                <span className="mx-8 text-4xl">•</span>
+                ATS FRIENDLY
+                <span className="mx-8 text-4xl">•</span>
+                INSTANT PDF
+                <span className="mx-8 text-4xl">•</span>
+              </div>
+            ))}
+          </div>
+        </section>
 
-        {/* Features Section */}
-        <section id="features" className="py-32 bg-background relative border-b-4 border-black dark:border-white">
+        {/* Features Grid */}
+        <section className="py-24 bg-background">
           <div className="container mx-auto px-4">
-            <div className="text-center mb-24">
-              <h2 className="text-5xl md:text-7xl font-black tracking-tighter mb-6 uppercase">
-                Why Choose Us?
+            <div className="text-center mb-16">
+              <h2 className="text-4xl md:text-5xl font-black mb-6 uppercase">
+                Why We <span className="text-primary underline decoration-wavy underline-offset-4">Rule</span>
               </h2>
-              <div className="w-24 h-4 bg-primary mx-auto border-2 border-black dark:border-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)]"></div>
+              <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+                Features designed to make you look good. Really good.
+              </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
-              <FeatureCard
-                icon={<Wand2 className="h-12 w-12" />}
-                title="AI Magic"
-                description="Our AI writes your bullets, summary, and skills section. It's like having a professional resume writer in your pocket."
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+              <FeatureItem 
+                icon={<Briefcase className="h-8 w-8" />}
+                title="Smart Targeting"
+                description="Our AI analyzes job descriptions to tailor your resume keywords perfectly."
                 delay={0.1}
               />
-              <FeatureCard
-                icon={<CheckCircle2 className="h-12 w-12" />}
-                title="ATS Optimized"
-                description="Beat the bots. Our templates are designed to pass through Applicant Tracking Systems with 100% success rate."
+              <FeatureItem 
+                icon={<Sparkles className="h-8 w-8" />}
+                title="AI Writer"
+                description="Generate professional summaries and bullet points with a single click."
                 delay={0.2}
               />
-              <FeatureCard
-                icon={<Download className="h-12 w-12" />}
-                title="Instant PDF"
-                description="Export your masterpiece in seconds. No watermarks, no hidden fees, just pure professional PDF goodness."
+              <FeatureItem 
+                icon={<FileText className="h-8 w-8" />}
+                title="ATS Proof"
+                description="Templates tested against major Applicant Tracking Systems to ensure you get seen."
                 delay={0.3}
-              />
-              <FeatureCard
-                icon={<User className="h-12 w-12" />}
-                title="Smart Analysis"
-                description="Upload your old resume or LinkedIn profile. We'll analyze it and tell you exactly what needs fixing."
-                delay={0.4}
-              />
-              <FeatureCard
-                icon={<Share2 className="h-12 w-12" />}
-                title="Share & Track"
-                description="Get a unique link to share your resume. Track who views it and when. Knowledge is power."
-                delay={0.5}
-              />
-              <FeatureCard
-                icon={<Code2 className="h-12 w-12" />}
-                title="Developer Ready"
-                description="Specialized templates for developers. Highlight your stack, GitHub projects, and technical skills effectively."
-                delay={0.6}
               />
             </div>
           </div>
         </section>
 
-        {/* Steps Section */}
-        <section className="py-32 bg-muted/50 border-b-4 border-black dark:border-white overflow-hidden">
+        {/* How it Works - Accordion Style */}
+        <section className="py-24 bg-muted/30 border-t-2 border-foreground">
           <div className="container mx-auto px-4">
-            <div className="flex flex-col lg:flex-row items-center gap-16">
-              <div className="lg:w-1/2">
-                <h2 className="text-5xl md:text-7xl font-black tracking-tighter mb-12 uppercase leading-tight">
-                  Three Steps to <br />
-                  <span className="bg-primary text-primary-foreground px-2">Employment</span>
+            <div className="grid lg:grid-cols-2 gap-16 items-start">
+              <div className="sticky top-24">
+                <h2 className="text-4xl md:text-6xl font-black mb-6 leading-tight">
+                  3 STEPS TO <br />
+                  <span className="bg-foreground text-background px-2">SUCCESS</span>
                 </h2>
-                
-                <div className="space-y-12">
-                  <Step number="01" title="Import or Start Fresh" description="Upload your current resume or start from scratch. Our wizard guides you through every section." />
-                  <Step number="02" title="AI Optimization" description="Let our AI polish your content, fix grammar, and optimize keywords for your target job." />
-                  <Step number="03" title="Download & Apply" description="Choose a template, customize the colors, and download your production-ready resume." />
-                </div>
+                <p className="text-xl text-muted-foreground mb-8">
+                  We've simplified the process so you can focus on preparing for the interview.
+                </p>
+                <Link href={session ? "/dashboard" : "/sign-in"}>
+                    <NeoButton variant="secondary" className="w-full sm:w-auto">
+                      BUILD NOW
+                    </NeoButton>
+                </Link>
               </div>
-              
-              <div className="lg:w-1/2 relative">
-                <div className="absolute inset-0 bg-primary translate-x-4 translate-y-4 border-4 border-black dark:border-white rounded-none"></div>
-                <NeoCard className="relative z-10 bg-background aspect-square flex items-center justify-center p-0 overflow-hidden">
-                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,var(--primary)_0%,transparent_70%)] opacity-20"></div>
-                  <Cpu className="w-64 h-64 text-foreground opacity-10 animate-pulse" />
-                  <div className="text-center z-20">
-                    <h3 className="text-4xl font-black mb-4">READY?</h3>
-                    <Link href="/sign-in">
-                      <NeoButton size="lg" className="w-full">
-                        Let's Go
-                      </NeoButton>
-                    </Link>
-                  </div>
-                </NeoCard>
+
+              <div className="space-y-6">
+                <StepCard 
+                  number="01" 
+                  title="Import or Start Fresh" 
+                  description="Upload your old resume or LinkedIn PDF, or start from scratch with our guided wizard." 
+                />
+                <StepCard 
+                  number="02" 
+                  title="AI Enhancement" 
+                  description="Let our AI polish your grammar, suggest stronger action verbs, and optimize for keywords." 
+                />
+                <StepCard 
+                  number="03" 
+                  title="Download & Apply" 
+                  description="Export as a perfectly formatted PDF and start applying to your dream jobs instantly." 
+                />
               </div>
             </div>
           </div>
         </section>
 
         {/* CTA Section */}
-        <section className="py-32 bg-primary relative overflow-hidden">
-           <div className="absolute inset-0 -z-10 opacity-20" style={{ backgroundImage: "radial-gradient(#000 2px, transparent 2px)", backgroundSize: "30px 30px" }}></div>
-          <div className="container mx-auto px-4 text-center relative z-10">
-            <h2 className="text-5xl md:text-8xl font-black text-primary-foreground mb-8 uppercase tracking-tighter drop-shadow-[4px_4px_0px_rgba(0,0,0,1)]">
-              Don't Be Boring.
-            </h2>
-            <p className="text-2xl md:text-3xl font-bold text-primary-foreground/90 mb-12 max-w-3xl mx-auto border-4 border-black bg-white/10 backdrop-blur-md p-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
-              Join thousands of job seekers who stopped sending generic resumes and started getting hired.
-            </p>
-            <Link href={session ? "/dashboard" : "/sign-in"}>
-              <button className="bg-background text-foreground text-2xl font-black uppercase px-12 py-6 border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] hover:translate-x-1 hover:translate-y-1 hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all active:shadow-none active:translate-x-2 active:translate-y-2">
-                Build My Resume Now
-              </button>
-            </Link>
-          </div>
+        <section className="py-24 container mx-auto px-4">
+           <div className="relative rounded-3xl border-4 border-foreground bg-foreground text-background p-12 md:p-24 text-center overflow-hidden shadow-[12px_12px_0px_0px_var(--color-primary)]">
+              <div className="relative z-10">
+                <h2 className="text-4xl md:text-6xl font-black mb-8 text-background">
+                  READY TO LEVEL UP?
+                </h2>
+                <p className="text-xl md:text-2xl text-background/80 mb-12 max-w-2xl mx-auto">
+                  Join thousands of professionals who have accelerated their careers with AI Resume.
+                </p>
+                <Link href={session ? "/dashboard" : "/sign-in"}>
+                  <NeoButton size="lg" className="bg-background text-foreground hover:bg-primary hover:text-primary-foreground border-background text-xl py-8 px-12 h-auto shadow-none hover:shadow-[6px_6px_0px_0px_var(--color-background)]">
+                    GET STARTED FREE
+                  </NeoButton>
+                </Link>
+              </div>
+              
+              {/* Abstract Background Shapes */}
+              <div className="absolute top-0 left-0 w-full h-full overflow-hidden opacity-10">
+                <div className="absolute -top-[50%] -left-[50%] w-[200%] h-[200%] bg-[repeating-linear-gradient(45deg,transparent,transparent_20px,var(--color-primary)_20px,var(--color-primary)_40px)] animate-[spin_60s_linear_infinite]" />
+              </div>
+           </div>
         </section>
       </main>
 
-      <footer className="py-12 bg-background border-t-4 border-black dark:border-white">
+      {/* Footer */}
+      <footer className="border-t-2 border-foreground bg-background py-12">
         <div className="container mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-8">
-          <div className="flex items-center gap-2">
-            <div className="bg-primary border-2 border-black dark:border-white p-1 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-[2px_2px_0px_0px_rgba(255,255,255,1)]">
-              <FileText className="h-5 w-5 text-primary-foreground" />
-            </div>
-            <span className="font-black text-xl uppercase tracking-widest">AI Resume</span>
+          <div className="flex flex-col items-center md:items-start gap-4">
+            <Link href="/" className="flex items-center gap-2 font-black text-xl">
+              <div className="h-8 w-8 bg-primary border-2 border-foreground flex items-center justify-center">
+                 <FileText className="h-5 w-5 text-primary-foreground" />
+              </div>
+              AI RESUME
+            </Link>
+            <p className="text-sm font-bold text-muted-foreground">
+              © {new Date().getFullYear()} AI Resume Builder.
+            </p>
           </div>
           
-          <div className="flex gap-8 font-bold text-lg uppercase tracking-tight">
-            <Link href="#" className="hover:underline decoration-wavy decoration-2 underline-offset-4">Privacy</Link>
-            <Link href="#" className="hover:underline decoration-wavy decoration-2 underline-offset-4">Terms</Link>
-            <Link href="#" className="hover:underline decoration-wavy decoration-2 underline-offset-4">Contact</Link>
+          <div className="flex gap-6 font-bold">
+            <Link href="#" className="hover:text-primary hover:underline decoration-wavy underline-offset-4">Twitter</Link>
+            <Link href="#" className="hover:text-primary hover:underline decoration-wavy underline-offset-4">GitHub</Link>
+            <Link href="#" className="hover:text-primary hover:underline decoration-wavy underline-offset-4">Discord</Link>
           </div>
-
-          <p className="text-sm font-bold opacity-50">
-            © {new Date().getFullYear()} AI Resume Builder.
-          </p>
         </div>
       </footer>
     </div>
   );
 }
 
-function FeatureCard({ icon, title, description, delay }: { icon: React.ReactNode; title: string; description: string; delay: number }) {
-  const ref = useRef(null);
-  const isInView = useInView(ref, { once: true });
-
+function FeatureItem({ icon, title, description, delay }: { icon: React.ReactNode, title: string, description: string, delay: number }) {
   return (
     <motion.div
-      ref={ref}
-      initial={{ opacity: 0, y: 50 }}
-      animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 50 }}
-      transition={{ duration: 0.5, delay: delay }}
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      transition={{ duration: 0.5, delay }}
     >
-      <NeoCard className="h-full flex flex-col items-start gap-4 hover:bg-accent transition-colors duration-300">
-        <div className="bg-primary text-primary-foreground p-3 border-2 border-black dark:border-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] mb-2">
+      <NeoCard className="h-full p-8 flex flex-col gap-4">
+        <div className="h-14 w-14 rounded-full border-2 border-foreground bg-secondary flex items-center justify-center shadow-[3px_3px_0px_0px_var(--color-foreground)] mb-2">
           {icon}
         </div>
-        <h3 className="text-2xl font-black uppercase tracking-tight">{title}</h3>
-        <p className="text-lg font-medium text-muted-foreground leading-relaxed">{description}</p>
+        <h3 className="text-2xl font-bold">{title}</h3>
+        <p className="text-muted-foreground font-medium leading-relaxed">
+          {description}
+        </p>
       </NeoCard>
     </motion.div>
   );
 }
 
-function Step({ number, title, description }: { number: string; title: string; description: string }) {
+function StepCard({ number, title, description }: { number: string, title: string, description: string }) {
   return (
-    <div className="flex items-start gap-6 group">
-      <span className="text-6xl font-black text-transparent bg-clip-text text-black dark:text-white opacity-20 group-hover:opacity-100 transition-opacity duration-300" style={{ WebkitTextStroke: "2px currentColor" }}>
+    <div className="flex gap-6 p-6 rounded-xl border-2 border-foreground bg-card shadow-[4px_4px_0px_0px_var(--color-foreground)]">
+      <div className="text-4xl font-black text-primary/50 stroke-foreground">
         {number}
-      </span>
+      </div>
       <div>
-        <h3 className="text-3xl font-black uppercase mb-2 group-hover:text-primary transition-colors">{title}</h3>
-        <p className="text-xl font-medium text-muted-foreground border-l-4 border-black dark:border-white pl-4 py-1">
+        <h3 className="text-xl font-bold mb-2">{title}</h3>
+        <p className="text-muted-foreground font-medium">
           {description}
         </p>
       </div>
     </div>
-  );
+  )
 }

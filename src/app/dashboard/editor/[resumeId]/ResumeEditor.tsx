@@ -2,7 +2,8 @@
 
 import useUnloadWarning from "@/hooks/useUnloadWarning";
 import { cn, mapToResumeValues } from "@/lib/utils";
-import { ResumeValues } from "@/lib/validation";
+import type { ResumeValues } from "@/lib/validation";
+import type { ResumeServerData } from "@/lib/types";
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import Breadcrumbs from "./Breadcrumbs";
@@ -10,7 +11,6 @@ import Footer from "./Footer";
 import ResumePreviewSection from "./ResumePreviewSection";
 import { steps } from "./steps";
 import useAutoSaveResume from "./useAutoSaveResume";
-import { ResumeServerData } from "@/lib/types";
 
 interface ResumeEditorProps {
     resumeToEdit: ResumeServerData | null;
@@ -25,7 +25,8 @@ export default function ResumeEditor({ resumeToEdit }: ResumeEditorProps) {
 
     const [showSmResumePreview, setShowSmResumePreview] = useState(false);
 
-    const { isSaving, hasUnsavedChanges } = useAutoSaveResume(resumeData);
+    const { isSaving, hasUnsavedChanges, lastSaveError } =
+        useAutoSaveResume(resumeData);
 
     useUnloadWarning(hasUnsavedChanges);
 
@@ -83,6 +84,8 @@ export default function ResumeEditor({ resumeToEdit }: ResumeEditorProps) {
                 showSmResumePreview={showSmResumePreview}
                 setShowSmResumePreview={setShowSmResumePreview}
                 isSaving={isSaving}
+                hasUnsavedChanges={hasUnsavedChanges}
+                lastSaveError={lastSaveError}
             />
         </div>
     );

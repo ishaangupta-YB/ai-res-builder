@@ -1,6 +1,9 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import { Check } from "lucide-react";
 import { steps } from "./steps";
 
 interface BreadcrumbsProps {
@@ -12,48 +15,58 @@ export default function Breadcrumbs({
     currentStep,
     setCurrentStep,
 }: BreadcrumbsProps) {
+    const currentIndex = steps.findIndex((s) => s.key === currentStep);
+
     return (
         <div className="flex justify-center">
             <nav aria-label="Resume editor steps">
-                <ol className="flex flex-wrap items-center gap-2">
+                <ol className="flex flex-wrap items-center gap-1">
                     {steps.map((step, index) => {
                         const isActive = step.key === currentStep;
-                        const currentIndex = steps.findIndex(
-                            (s) => s.key === currentStep,
-                        );
                         const isCompleted = index < currentIndex;
 
                         return (
                             <li key={step.key} className="flex items-center">
                                 {index > 0 && (
-                                    <div
+                                    <Separator
                                         className={cn(
-                                            "mx-2 h-px w-4",
-                                            isCompleted
-                                                ? "bg-primary"
-                                                : "bg-muted",
+                                            "mx-1.5 w-4",
+                                            isCompleted && "bg-primary",
                                         )}
                                     />
                                 )}
-                                <button
+                                <Button
                                     type="button"
+                                    variant={isActive ? "default" : "ghost"}
+                                    size="sm"
                                     onClick={() => setCurrentStep(step.key)}
                                     className={cn(
-                                        "flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium transition-colors",
-                                        isActive
-                                            ? "bg-primary text-primary-foreground"
-                                            : isCompleted
-                                              ? "bg-primary/10 text-primary hover:bg-primary/20"
-                                              : "bg-muted text-muted-foreground hover:bg-muted/80",
+                                        "gap-1.5 rounded-full",
+                                        !isActive &&
+                                            isCompleted &&
+                                            "text-primary hover:text-primary",
                                     )}
                                 >
-                                    <span className="flex h-5 w-5 items-center justify-center rounded-full border text-xs">
-                                        {index + 1}
+                                    <span
+                                        className={cn(
+                                            "flex h-5 w-5 items-center justify-center rounded-full text-xs",
+                                            isActive
+                                                ? "bg-primary-foreground text-primary"
+                                                : isCompleted
+                                                  ? "bg-primary/10 text-primary"
+                                                  : "bg-muted text-muted-foreground",
+                                        )}
+                                    >
+                                        {isCompleted ? (
+                                            <Check className="h-3 w-3" />
+                                        ) : (
+                                            index + 1
+                                        )}
                                     </span>
                                     <span className="hidden sm:inline">
                                         {step.title}
                                     </span>
-                                </button>
+                                </Button>
                             </li>
                         );
                     })}

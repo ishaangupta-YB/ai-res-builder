@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import {
     FileText,
+    FileUp,
     LogOut,
     Plus,
     User,
@@ -50,6 +51,12 @@ export function DashboardNavbar({ user }: DashboardNavbarProps) {
             label: "Dashboard",
             icon: LayoutDashboard,
             active: pathname === "/dashboard",
+        },
+        {
+            href: "/dashboard/uploads",
+            label: "Uploads",
+            icon: FileUp,
+            active: pathname === "/dashboard/uploads",
         },
         {
             href: "/dashboard/billing",
@@ -137,6 +144,12 @@ export function DashboardNavbar({ user }: DashboardNavbarProps) {
                                 <Link href="/dashboard/profile">
                                     <User className="mr-2 h-4 w-4" />
                                     Profile
+                                </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                                <Link href="/dashboard/uploads">
+                                    <FileUp className="mr-2 h-4 w-4" />
+                                    Uploads
                                 </Link>
                             </DropdownMenuItem>
                             <DropdownMenuItem asChild>

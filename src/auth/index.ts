@@ -81,6 +81,8 @@ export const auth = betterAuth({
             cf: {},
         },
         {
+            baseURL: process.env.BETTER_AUTH_URL || "http://localhost:3000",
+            secret: process.env.BETTER_AUTH_SECRET || "build-placeholder-secret-do-not-use",
             socialProviders: {
                 google: {
                     clientId: process.env.GOOGLE_CLIENT_ID || "placeholder",
