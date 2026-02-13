@@ -34,7 +34,20 @@
 	],
 	"observability": {
 		"enabled": true
-	}
+	},
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "ai-resume-app-db",
+			"database_id": "a7f7ca4d-29cc-4242-808c-6c9dffd34312"
+		}
+	],
+	"kv_namespaces": [
+		{
+			"binding": "KV",
+			"id": "36379a2e3ef24489863474cb7b9f725a"
+		}
+	]
 	/**
 	 * Smart Placement
 	 * https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
