@@ -1,10 +1,25 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useEffect, useRef, useState, type SyntheticEvent } from "react";
+import ReactCrop, {
+    centerCrop,
+    convertToPixelCrop,
+    makeAspectCrop,
+    type PercentCrop,
+    type PixelCrop,
+} from "react-image-crop";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Camera, Eye, EyeOff, Loader2, X } from "lucide-react";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
 import type { EditorFormProps } from "@/lib/types";
 import type { ReactNode } from "react";
@@ -38,6 +53,98 @@ const LINK_LABEL_MODE_KEYS = {
 } as const;
 
 type LinkFieldKey = (typeof LINK_FIELDS)[number]["key"];
+
+const PHOTO_ASPECT_RATIO = 1;
+const MAX_PHOTO_SIZE_BYTES = 5 * 1024 * 1024;
+const ALLOWED_PHOTO_TYPES = new Set([
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+]);
+
+function centerAspectCrop(
+    mediaWidth: number,
+    mediaHeight: number,
+    aspect: number,
+): PercentCrop {
+    return centerCrop(
+        makeAspectCrop(
+            {
+                unit: "%",
+                width: 80,
+            },
+            aspect,
+            mediaWidth,
+            mediaHeight,
+        ),
+        mediaWidth,
+        mediaHeight,
+    );
+}
+
+async function createCroppedImageBlob(
+    image: HTMLImageElement,
+    crop: PixelCrop,
+    fileType: string,
+): Promise<Blob> {
+    const canvas = document.createElement("canvas");
+    const scaleX = image.naturalWidth / image.width;
+    const scaleY = image.naturalHeight / image.height;
+    const pixelRatio = window.devicePixelRatio || 1;
+
+    const cropWidth = Math.max(1, crop.width * scaleX);
+    const cropHeight = Math.max(1, crop.height * scaleY);
+    canvas.width = Math.max(1, Math.floor(cropWidth * pixelRatio));
+    canvas.height = Math.max(1, Math.floor(cropHeight * pixelRatio));
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+        throw new Error("Canvas is not supported in this browser");
+    }
+
+    ctx.scale(pixelRatio, pixelRatio);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    const cropX = crop.x * scaleX;
+    const cropY = crop.y * scaleY;
+    ctx.drawImage(
+        image,
+        cropX,
+        cropY,
+        cropWidth,
+        cropHeight,
+        0,
+        0,
+        cropWidth,
+        cropHeight,
+    );
+
+    const outputMimeType =
+        fileType === "image/png" || fileType === "image/webp"
+            ? fileType
+            : "image/jpeg";
+
+    return new Promise((resolve, reject) => {
+        canvas.toBlob(
+            (blob) => {
+                if (!blob) {
+                    reject(new Error("Failed to generate cropped image"));
+                    return;
+                }
+                resolve(blob);
+            },
+            outputMimeType,
+            0.92,
+        );
+    });
+}
+
+function getCroppedFileName(file: File): string {
+    const baseName = file.name.replace(/\.[^.]+$/, "") || "profile-photo";
+    if (file.type === "image/png") return `${baseName}-cropped.png`;
+    if (file.type === "image/webp") return `${baseName}-cropped.webp`;
+    return `${baseName}-cropped.jpg`;
+}
 
 function FieldRow({
     fieldKey,
@@ -97,42 +204,181 @@ export default function PersonalInfoSection({
 }: EditorFormProps) {
     const fieldVisibility = resumeData.fieldVisibility ?? {};
     const [isUploading, setIsUploading] = useState(false);
+    const [isRemovingPhoto, setIsRemovingPhoto] = useState(false);
+    const [cropDialogOpen, setCropDialogOpen] = useState(false);
+    const [cropImageUrl, setCropImageUrl] = useState<string | null>(null);
+    const [selectedPhotoFile, setSelectedPhotoFile] = useState<File | null>(null);
+    const [crop, setCrop] = useState<PercentCrop>();
+    const [completedCrop, setCompletedCrop] = useState<PixelCrop | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const cropImageRef = useRef<HTMLImageElement>(null);
 
-    async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    useEffect(() => {
+        return () => {
+            if (cropImageUrl) URL.revokeObjectURL(cropImageUrl);
+        };
+    }, [cropImageUrl]);
+
+    function resetCropState() {
+        setCropDialogOpen(false);
+        setSelectedPhotoFile(null);
+        setCrop(undefined);
+        setCompletedCrop(null);
+        cropImageRef.current = null;
+        setCropImageUrl((prev) => {
+            if (prev) URL.revokeObjectURL(prev);
+            return null;
+        });
+    }
+
+    function handleCropDialogOpenChange(open: boolean) {
+        if (isUploading) return;
+        if (!open) {
+            resetCropState();
+            return;
+        }
+        setCropDialogOpen(true);
+    }
+
+    function onCropImageLoad(e: SyntheticEvent<HTMLImageElement>) {
+        const { width, height } = e.currentTarget;
+        const initialCrop = centerAspectCrop(width, height, PHOTO_ASPECT_RATIO);
+        setCrop(initialCrop);
+        setCompletedCrop(convertToPixelCrop(initialCrop, width, height));
+    }
+
+    async function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
         const file = e.target.files?.[0];
-        if (!file) return;
+        if (!file) {
+            return;
+        }
+
+        if (!ALLOWED_PHOTO_TYPES.has(file.type)) {
+            toast.error("Please upload a JPG, PNG, or WebP image");
+            if (fileInputRef.current) fileInputRef.current.value = "";
+            return;
+        }
+
+        if (file.size > MAX_PHOTO_SIZE_BYTES) {
+            toast.error("Image is too large. Maximum size is 5MB");
+            if (fileInputRef.current) fileInputRef.current.value = "";
+            return;
+        }
+
+        const objectUrl = URL.createObjectURL(file);
+        setCropImageUrl((prev) => {
+            if (prev) URL.revokeObjectURL(prev);
+            return objectUrl;
+        });
+        setSelectedPhotoFile(file);
+        setCrop(undefined);
+        setCompletedCrop(null);
+        setCropDialogOpen(true);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+
+    async function handleCropAndUpload() {
+        if (!selectedPhotoFile || !cropImageRef.current || !completedCrop) {
+            toast.error("Please select and crop an image before uploading");
+            return;
+        }
+
+        if (!completedCrop.width || !completedCrop.height) {
+            toast.error("Crop area is too small");
+            return;
+        }
+
+        if (!resumeData.id) {
+            toast.error("Resume ID is missing. Please refresh and try again.");
+            return;
+        }
 
         setIsUploading(true);
         try {
+            const croppedImageBlob = await createCroppedImageBlob(
+                cropImageRef.current,
+                completedCrop,
+                selectedPhotoFile.type,
+            );
+            const croppedFile = new File(
+                [croppedImageBlob],
+                getCroppedFileName(selectedPhotoFile),
+                { type: croppedImageBlob.type || selectedPhotoFile.type },
+            );
+
             const formData = new FormData();
-            formData.append("file", file);
+            formData.append("file", croppedFile);
             formData.append("fileType", "photo");
-            if (resumeData.id) formData.append("resumeId", resumeData.id);
+            formData.append("resumeId", resumeData.id);
 
             const res = await fetch("/api/files/upload", {
                 method: "POST",
                 body: formData,
             });
-            const data: { success?: boolean; url?: string; error?: string } =
-                await res.json();
+            const data: {
+                success?: boolean;
+                url?: string;
+                error?: string;
+                resumePhotoSynced?: boolean;
+            } = await res.json();
 
-            if (!res.ok || !data.success) {
+            if (!res.ok || !data.success || !data.url) {
                 toast.error(data.error || "Failed to upload photo");
                 return;
             }
 
             setResumeData((prev) => ({ ...prev, photoUrl: data.url }));
-        } catch {
+            if (data.resumePhotoSynced === false) {
+                toast.error("Photo uploaded, but resume DB sync could not be verified");
+            } else {
+                toast.success("Photo uploaded successfully");
+            }
+            resetCropState();
+        } catch (error) {
+            console.error("Photo upload failed", error);
             toast.error("Failed to upload photo");
         } finally {
             setIsUploading(false);
-            if (fileInputRef.current) fileInputRef.current.value = "";
         }
     }
 
-    function handlePhotoRemove() {
-        setResumeData((prev) => ({ ...prev, photoUrl: undefined }));
+    async function handlePhotoRemove() {
+        if (!resumeData.photoUrl || isRemovingPhoto || isUploading) return;
+
+        if (!resumeData.id) {
+            setResumeData((prev) => ({ ...prev, photoUrl: undefined }));
+            return;
+        }
+
+        setIsRemovingPhoto(true);
+        try {
+            const res = await fetch(
+                `/api/files/upload?fileType=photo&resumeId=${encodeURIComponent(resumeData.id)}`,
+                { method: "DELETE" },
+            );
+            const data: {
+                success?: boolean;
+                error?: string;
+                resumePhotoCleared?: boolean;
+            } = await res.json();
+
+            if (!res.ok || !data.success) {
+                toast.error(data.error || "Failed to delete photo");
+                return;
+            }
+
+            setResumeData((prev) => ({ ...prev, photoUrl: undefined }));
+            if (data.resumePhotoCleared === false) {
+                toast.error("Photo deleted, but DB clear could not be verified");
+            } else {
+                toast.success("Photo removed");
+            }
+        } catch (error) {
+            console.error("Photo delete failed", error);
+            toast.error("Failed to delete photo");
+        } finally {
+            setIsRemovingPhoto(false);
+        }
     }
 
     function updateField(key: keyof typeof resumeData, value: string) {
@@ -181,7 +427,7 @@ export default function PersonalInfoSection({
                         type="button"
                         className="relative flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border-2 border-dashed border-muted-foreground/30 bg-muted/50 transition-colors hover:border-primary/50"
                         onClick={() => fileInputRef.current?.click()}
-                        disabled={isUploading}
+                        disabled={isUploading || isRemovingPhoto}
                     >
                         {resumeData.photoUrl ? (
                             // eslint-disable-next-line @next/next/no-img-element
@@ -190,13 +436,13 @@ export default function PersonalInfoSection({
                                 alt="Resume photo"
                                 className="h-full w-full object-cover"
                             />
-                        ) : isUploading ? (
+                        ) : isUploading || isRemovingPhoto ? (
                             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                         ) : (
                             <Camera className="h-6 w-6 text-muted-foreground" />
                         )}
                     </button>
-                    {resumeData.photoUrl && !isUploading && (
+                    {resumeData.photoUrl && !isUploading && !isRemovingPhoto && (
                         <button
                             type="button"
                             className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground shadow-sm"
@@ -215,7 +461,7 @@ export default function PersonalInfoSection({
                     type="file"
                     accept="image/jpeg,image/png,image/webp"
                     className="hidden"
-                    onChange={handlePhotoUpload}
+                    onChange={handlePhotoSelect}
                 />
             </div>
 
@@ -309,6 +555,80 @@ export default function PersonalInfoSection({
                     </FieldRow>
                 ))}
             </div>
+
+            <Dialog open={cropDialogOpen} onOpenChange={handleCropDialogOpenChange}>
+                <DialogContent
+                    showCloseButton={!isUploading}
+                    className="w-[min(92vw,36rem)] max-w-none overflow-hidden p-0"
+                >
+                    <div className="grid max-h-[88vh] grid-rows-[auto_minmax(0,1fr)_auto]">
+                        <DialogHeader className="border-b px-4 py-3">
+                            <DialogTitle>Crop profile photo</DialogTitle>
+                            <DialogDescription>
+                                Adjust your image before uploading.
+                            </DialogDescription>
+                        </DialogHeader>
+
+                        <div className="min-h-0 bg-muted/30 p-3">
+                            <div className="flex h-full min-h-[18rem] items-center justify-center overflow-hidden rounded-md border bg-background">
+                                {cropImageUrl ? (
+                                    <ReactCrop
+                                        crop={crop}
+                                        onChange={(pixelCrop, percentCrop) => {
+                                            setCrop(percentCrop);
+                                            setCompletedCrop(pixelCrop);
+                                        }}
+                                        aspect={PHOTO_ASPECT_RATIO}
+                                        keepSelection
+                                        minWidth={120}
+                                        minHeight={120}
+                                        className="max-h-full max-w-full"
+                                    >
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img
+                                            ref={cropImageRef}
+                                            src={cropImageUrl}
+                                            alt="Crop preview"
+                                            onLoad={onCropImageLoad}
+                                            className="block max-h-[52vh] w-auto max-w-full"
+                                        />
+                                    </ReactCrop>
+                                ) : null}
+                            </div>
+                        </div>
+
+                        <DialogFooter className="border-t px-4 py-3 sm:justify-end">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={resetCropState}
+                                disabled={isUploading}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                type="button"
+                                onClick={handleCropAndUpload}
+                                disabled={
+                                    isUploading ||
+                                    !selectedPhotoFile ||
+                                    !completedCrop?.width ||
+                                    !completedCrop?.height
+                                }
+                            >
+                                {isUploading ? (
+                                    <>
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                        Uploading...
+                                    </>
+                                ) : (
+                                    "Crop & Upload"
+                                )}
+                            </Button>
+                        </DialogFooter>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

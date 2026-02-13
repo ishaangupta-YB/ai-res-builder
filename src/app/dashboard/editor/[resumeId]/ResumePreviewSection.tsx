@@ -45,6 +45,26 @@ export const FONT_FAMILIES = [
         value: "monospace",
         css: '"Courier New", Courier, monospace',
     },
+    {
+        label: "System",
+        value: "system",
+        css: 'system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"',
+    },
+    {
+        label: "Garamond",
+        value: "garamond",
+        css: 'Garamond, "Hoefler Text", "Times New Roman", Times, serif',
+    },
+    {
+        label: "Verdana",
+        value: "verdana",
+        css: 'Verdana, Geneva, Tahoma, sans-serif',
+    },
+    {
+        label: "Slab",
+        value: "slab",
+        css: '"Rockwell", "Roboto Slab", "DejaVu Serif", "Sitka Small", serif',
+    },
 ] as const;
 
 export const FONT_SIZE_MIN = 8;

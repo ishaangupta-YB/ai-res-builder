@@ -6,7 +6,6 @@ import {
     FileText,
     FileUp,
     LogOut,
-    Plus,
     User,
     CreditCard,
     LayoutDashboard,
@@ -22,7 +21,6 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { signOut } from "@/lib/auth-client";
-import { createResume } from "@/app/dashboard/actions";
 import { cn } from "@/lib/utils";
 
 interface DashboardNavbarProps {
@@ -107,6 +105,7 @@ export function DashboardNavbar({ user }: DashboardNavbarProps) {
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <Button
+                                id="user-menu-trigger"
                                 variant="ghost"
                                 className="relative h-9 w-9 rounded-full"
                             >

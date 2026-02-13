@@ -3,11 +3,11 @@
 import { forwardRef } from "react";
 import type { ResumeValues } from "@/lib/validation";
 import ResumeTemplate from "./ResumeTemplate";
-import { FONT_FAMILIES, type PreviewFontFamily } from "./ResumePreviewSection";
-
-const PRINT_PAGE_WIDTH = 794; // A4 at 96dpi (210mm)
-const PRINT_PADDING_X = 48;
-const PRINT_PADDING_Y = 40;
+import {
+    CONTENT_WIDTH,
+    FONT_FAMILIES,
+    type PreviewFontFamily,
+} from "./ResumePreviewSection";
 
 interface PrintableResumeProps {
     resumeData: ResumeValues;
@@ -23,8 +23,6 @@ const PrintableResume = forwardRef<HTMLDivElement, PrintableResumeProps>(
         const fontScale = (resumeData.fontSize ?? 10) / 10;
 
         return (
-            // Outer wrapper hides content on screen; ref is on the inner div
-            // so react-to-print only copies the clean print-ready content
             <div
                 aria-hidden
                 style={{
@@ -37,9 +35,10 @@ const PrintableResume = forwardRef<HTMLDivElement, PrintableResumeProps>(
             >
                 <div
                     ref={ref}
+                    id="resumePrintContent"
                     style={{
-                        width: PRINT_PAGE_WIDTH,
-                        padding: `${PRINT_PADDING_Y}px ${PRINT_PADDING_X}px`,
+                        width: CONTENT_WIDTH,
+                        margin: "0 auto",
                         background: "white",
                         color: "black",
                     }}
