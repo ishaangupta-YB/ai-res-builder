@@ -5,6 +5,14 @@ import {
     resumes,
     workExperiences,
     educations,
+    projects,
+    awards,
+    publications,
+    certificates,
+    languages,
+    courses,
+    resumeReferences,
+    interests,
     userFiles,
 } from "@/db/schema";
 import { getR2Bucket } from "@/lib/r2";
@@ -30,7 +38,7 @@ export async function createResume() {
 }
 
 // ---------------------------------------------------------------------------
-// Delete a resume (cascades to work_experiences / educations via FK)
+// Delete a resume (cascades to all related tables via FK)
 // ---------------------------------------------------------------------------
 export async function deleteResume(resumeId: string) {
     const session = await requireSession();
@@ -121,6 +129,14 @@ export async function saveResume(
             id: resumeId,
             workExperiences: workExps,
             educations: edus,
+            projects: projs,
+            awards: awds,
+            publications: pubs,
+            certificates: certs,
+            languages: langs,
+            courses: crses,
+            references: refs,
+            interests: ints,
             ...resumeFields
         } = data;
 
@@ -130,49 +146,194 @@ export async function saveResume(
             .set({
                 ...resumeFields,
                 skills: resumeFields.skills ?? [],
+                sectionOrder: resumeFields.sectionOrder ?? [],
+                sectionVisibility: resumeFields.sectionVisibility ?? {},
+                fieldVisibility: resumeFields.fieldVisibility ?? {},
                 updatedAt: new Date(),
             })
             .where(eq(resumes.id, resumeId));
 
-        // 6. Replace work experiences (delete + insert is atomic-enough for D1
-        //    and avoids complex diffing. Resume data is small.)
-        await db
-            .delete(workExperiences)
-            .where(eq(workExperiences.resumeId, resumeId));
-
-        if (workExps && workExps.length > 0) {
-            await db.insert(workExperiences).values(
-                workExps.map((exp) => ({
-                    position: exp.position || null,
-                    company: exp.company || null,
-                    startDate: exp.startDate
-                        ? new Date(exp.startDate)
-                        : null,
-                    endDate: exp.endDate ? new Date(exp.endDate) : null,
-                    description: exp.description || null,
+        // 6. Helper: replace all rows for a relation table
+        async function replaceRelation<T extends Record<string, unknown>>(
+            table: Parameters<typeof db.delete>[0],
+            resumeIdCol: { resumeId: string },
+            rows: T[] | undefined,
+            mapFn: (row: T, idx: number) => Record<string, unknown>,
+        ) {
+            await db.delete(table).where(
+                eq(
+                    (table as any).resumeId,
                     resumeId,
-                })),
+                ),
             );
+            if (rows && rows.length > 0) {
+                await db.insert(table as any).values(
+                    rows.map((row, idx) => ({
+                        ...mapFn(row, idx),
+                        resumeId,
+                    })),
+                );
+            }
         }
 
-        // 7. Replace educations
-        await db
-            .delete(educations)
-            .where(eq(educations.resumeId, resumeId));
+        // 7. Replace work experiences
+        await replaceRelation(
+            workExperiences,
+            { resumeId },
+            workExps,
+            (exp, idx) => ({
+                position: exp.position || null,
+                company: exp.company || null,
+                startDate: exp.startDate ? new Date(exp.startDate) : null,
+                endDate: exp.endDate ? new Date(exp.endDate) : null,
+                description: exp.description || null,
+                location: exp.location || null,
+                subheading: exp.subheading || null,
+                visible: exp.visible ?? true,
+                displayOrder: idx,
+            }),
+        );
 
-        if (edus && edus.length > 0) {
-            await db.insert(educations).values(
-                edus.map((edu) => ({
-                    degree: edu.degree || null,
-                    school: edu.school || null,
-                    startDate: edu.startDate
-                        ? new Date(edu.startDate)
-                        : null,
-                    endDate: edu.endDate ? new Date(edu.endDate) : null,
-                    resumeId,
-                })),
-            );
-        }
+        // 8. Replace educations
+        await replaceRelation(
+            educations,
+            { resumeId },
+            edus,
+            (edu, idx) => ({
+                degree: edu.degree || null,
+                school: edu.school || null,
+                fieldOfStudy: edu.fieldOfStudy || null,
+                gpa: edu.gpa || null,
+                description: edu.description || null,
+                location: edu.location || null,
+                startDate: edu.startDate ? new Date(edu.startDate) : null,
+                endDate: edu.endDate ? new Date(edu.endDate) : null,
+                visible: edu.visible ?? true,
+                displayOrder: idx,
+            }),
+        );
+
+        // 9. Replace projects
+        await replaceRelation(
+            projects,
+            { resumeId },
+            projs,
+            (p, idx) => ({
+                title: p.title || null,
+                subtitle: p.subtitle || null,
+                description: p.description || null,
+                link: p.link || null,
+                startDate: p.startDate ? new Date(p.startDate) : null,
+                endDate: p.endDate ? new Date(p.endDate) : null,
+                visible: p.visible ?? true,
+                displayOrder: idx,
+            }),
+        );
+
+        // 10. Replace awards
+        await replaceRelation(
+            awards,
+            { resumeId },
+            awds,
+            (a, idx) => ({
+                title: a.title || null,
+                issuer: a.issuer || null,
+                description: a.description || null,
+                date: a.date ? new Date(a.date) : null,
+                visible: a.visible ?? true,
+                displayOrder: idx,
+            }),
+        );
+
+        // 11. Replace publications
+        await replaceRelation(
+            publications,
+            { resumeId },
+            pubs,
+            (p, idx) => ({
+                title: p.title || null,
+                publisher: p.publisher || null,
+                authors: p.authors || null,
+                description: p.description || null,
+                date: p.date ? new Date(p.date) : null,
+                link: p.link || null,
+                visible: p.visible ?? true,
+                displayOrder: idx,
+            }),
+        );
+
+        // 12. Replace certificates
+        await replaceRelation(
+            certificates,
+            { resumeId },
+            certs,
+            (c, idx) => ({
+                title: c.title || null,
+                issuer: c.issuer || null,
+                description: c.description || null,
+                date: c.date ? new Date(c.date) : null,
+                link: c.link || null,
+                credentialId: c.credentialId || null,
+                visible: c.visible ?? true,
+                displayOrder: idx,
+            }),
+        );
+
+        // 13. Replace languages
+        await replaceRelation(
+            languages,
+            { resumeId },
+            langs,
+            (l, idx) => ({
+                language: l.language || null,
+                proficiency: l.proficiency || null,
+                visible: l.visible ?? true,
+                displayOrder: idx,
+            }),
+        );
+
+        // 14. Replace courses
+        await replaceRelation(
+            courses,
+            { resumeId },
+            crses,
+            (c, idx) => ({
+                name: c.name || null,
+                institution: c.institution || null,
+                description: c.description || null,
+                date: c.date ? new Date(c.date) : null,
+                visible: c.visible ?? true,
+                displayOrder: idx,
+            }),
+        );
+
+        // 15. Replace references
+        await replaceRelation(
+            resumeReferences,
+            { resumeId },
+            refs,
+            (r, idx) => ({
+                name: r.name || null,
+                position: r.position || null,
+                company: r.company || null,
+                email: r.email || null,
+                phone: r.phone || null,
+                visible: r.visible ?? true,
+                displayOrder: idx,
+            }),
+        );
+
+        // 16. Replace interests
+        await replaceRelation(
+            interests,
+            { resumeId },
+            ints,
+            (i, idx) => ({
+                name: i.name || null,
+                visible: i.visible ?? true,
+                displayOrder: idx,
+            }),
+        );
 
         return { success: true };
     } catch (err) {

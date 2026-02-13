@@ -26,6 +26,14 @@ export default async function EditorPage({ params }: EditorPageProps) {
             with: {
                 workExperiences: true,
                 educations: true,
+                projects: true,
+                awards: true,
+                publications: true,
+                certificates: true,
+                languages: true,
+                courses: true,
+                resumeReferences: true,
+                interests: true,
             },
         });
 

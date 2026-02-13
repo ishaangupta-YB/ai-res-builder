@@ -116,17 +116,6 @@ export default function LandingPage() {
         <section className="relative pt-20 pb-32 md:pt-32 md:pb-48 overflow-hidden">
           <div className="container mx-auto px-4 relative z-10">
             <div className="flex flex-col items-center text-center max-w-4xl mx-auto space-y-8">
-              <motion.div
-                initial={{ opacity: 0, y: 20, rotate: -5 }}
-                animate={{ opacity: 1, y: 0, rotate: 0 }}
-                transition={{ duration: 0.5, type: "spring" }}
-                className="inline-block"
-              >
-                <span className="inline-flex items-center gap-2 rounded-full border-2 border-foreground bg-secondary px-4 py-1.5 text-sm font-bold shadow-[4px_4px_0px_0px_var(--color-foreground)]">
-                  <Sparkles className="h-4 w-4" />
-                  <span>V2.0 NOW LIVE</span>
-                </span>
-              </motion.div>
 
               <motion.h1
                 initial={{ opacity: 0, scale: 0.9 }}

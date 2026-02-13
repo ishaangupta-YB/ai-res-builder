@@ -10,18 +10,13 @@ import {
 } from "@/components/ui/tooltip";
 import {
     FileText,
-    ChevronLeft,
-    ChevronRight,
     Loader2,
     Check,
     AlertCircle,
     Circle,
 } from "lucide-react";
-import { steps } from "./steps";
 
 interface FooterProps {
-    currentStep: string;
-    setCurrentStep: (step: string) => void;
     showSmResumePreview: boolean;
     setShowSmResumePreview: (show: boolean) => void;
     isSaving: boolean;
@@ -30,49 +25,16 @@ interface FooterProps {
 }
 
 export default function Footer({
-    currentStep,
-    setCurrentStep,
     showSmResumePreview,
     setShowSmResumePreview,
     isSaving,
     hasUnsavedChanges,
     lastSaveError,
 }: FooterProps) {
-    const currentIndex = steps.findIndex((step) => step.key === currentStep);
-    const previousStep = steps[currentIndex - 1];
-    const nextStep = steps[currentIndex + 1];
-
     return (
-        <footer className="w-full border-t px-3 py-3">
-            <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={
-                            previousStep
-                                ? () => setCurrentStep(previousStep.key)
-                                : undefined
-                        }
-                        disabled={!previousStep}
-                    >
-                        <ChevronLeft className="mr-1 h-4 w-4" />
-                        Previous
-                    </Button>
-                    <Button
-                        size="sm"
-                        onClick={
-                            nextStep
-                                ? () => setCurrentStep(nextStep.key)
-                                : undefined
-                        }
-                        disabled={!nextStep}
-                    >
-                        Next
-                        <ChevronRight className="ml-1 h-4 w-4" />
-                    </Button>
-                </div>
-
+        <footer className="w-full border-t bg-muted/40 px-3 py-3">
+            <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
+                {/* Mobile preview toggle */}
                 <TooltipProvider>
                     <Tooltip>
                         <TooltipTrigger asChild>
@@ -94,6 +56,9 @@ export default function Footer({
                         </TooltipContent>
                     </Tooltip>
                 </TooltipProvider>
+
+                {/* Spacer on mobile so save status is on the right */}
+                <div className="hidden flex-1 md:block" />
 
                 {/* Save status indicator */}
                 <SaveStatus

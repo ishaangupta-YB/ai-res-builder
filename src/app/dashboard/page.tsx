@@ -4,6 +4,13 @@ import { requireSession } from "@/lib/auth-server";
 import { eq, desc } from "drizzle-orm";
 import { Plus, FileText, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from "@/components/ui/card";
 import { ResumeCard } from "./resume-card";
 import { createResume } from "./actions";
 
@@ -28,52 +35,63 @@ export default async function DashboardPage() {
                             : `You have ${userResumes.length} resume${userResumes.length === 1 ? "" : "s"}`}
                     </p>
                 </div>
-                <form action={createResume}>
-                    <Button type="submit">
-                        <Plus className="mr-1.5 h-4 w-4" />
-                        New Resume
-                    </Button>
-                </form>
+                {userResumes.length > 0 && (
+                    <form action={createResume}>
+                        <Button type="submit">
+                            <Plus className="mr-1.5 h-4 w-4" />
+                            New Resume
+                        </Button>
+                    </form>
+                )}
             </div>
 
             {/* Resumes Grid */}
             {userResumes.length > 0 ? (
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     {/* Create New Card */}
-                    <form action={createResume}>
-                        <button
-                            type="submit"
-                            className="flex h-full min-h-[180px] w-full flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed border-muted-foreground/25 bg-muted/50 p-6 text-muted-foreground transition-colors hover:border-primary/50 hover:bg-muted hover:text-primary"
-                        >
-                            <Plus className="h-8 w-8" />
-                            <span className="text-sm font-medium">
-                                Create New Resume
-                            </span>
-                        </button>
-                    </form>
+                    <Card className="group cursor-pointer transition-all hover:shadow-md hover:border-primary/50">
+                        <form action={createResume} className="h-full">
+                            <button
+                                type="submit"
+                                className="flex h-full w-full flex-col items-center justify-center gap-3 p-6 text-muted-foreground transition-colors group-hover:text-primary"
+                            >
+                                <div className="rounded-full border-2 border-dashed border-muted-foreground/30 p-3 transition-colors group-hover:border-primary/50">
+                                    <Plus className="h-6 w-6" />
+                                </div>
+                                <span className="text-sm font-medium">
+                                    Create New Resume
+                                </span>
+                            </button>
+                        </form>
+                    </Card>
 
                     {userResumes.map((resume) => (
                         <ResumeCard key={resume.id} resume={resume} />
                     ))}
                 </div>
             ) : (
-                <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed py-16">
-                    <div className="rounded-full bg-muted p-4">
-                        <FileText className="h-8 w-8 text-muted-foreground" />
-                    </div>
-                    <h2 className="mt-4 text-xl font-semibold">
-                        No resumes yet
-                    </h2>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                        Get started by creating your first AI-powered resume
-                    </p>
-                    <form action={createResume} className="mt-4">
-                        <Button type="submit">
-                            <Sparkles className="mr-1.5 h-4 w-4" />
-                            Create Your First Resume
-                        </Button>
-                    </form>
-                </div>
+                <Card className="mx-auto max-w-md">
+                    <CardHeader className="text-center">
+                        <div className="mx-auto mb-2 rounded-full bg-primary/10 p-4">
+                            <FileText className="h-8 w-8 text-primary" />
+                        </div>
+                        <CardTitle className="text-xl">
+                            No resumes yet
+                        </CardTitle>
+                        <CardDescription>
+                            Get started by creating your first AI-powered
+                            resume. It only takes a few minutes.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="flex justify-center pb-8">
+                        <form action={createResume}>
+                            <Button type="submit" size="lg">
+                                <Sparkles className="mr-1.5 h-4 w-4" />
+                                Create Your First Resume
+                            </Button>
+                        </form>
+                    </CardContent>
+                </Card>
             )}
 
             {/* Templates Section */}
@@ -84,9 +102,9 @@ export default async function DashboardPage() {
                 </p>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     {templates.map((template) => (
-                        <div
+                        <Card
                             key={template.name}
-                            className="group relative overflow-hidden rounded-lg border bg-card transition-all hover:shadow-md"
+                            className="group overflow-hidden p-0 transition-all hover:shadow-md"
                         >
                             <div
                                 className="aspect-[210/297] w-full p-4"
@@ -109,7 +127,7 @@ export default async function DashboardPage() {
                                     {template.description}
                                 </p>
                             </div>
-                        </div>
+                        </Card>
                     ))}
                 </div>
             </div>

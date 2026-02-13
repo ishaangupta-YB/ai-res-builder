@@ -22,6 +22,20 @@
       "when": 1771005424291,
       "tag": "0002_mysterious_dragon_man",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1771006886526,
+      "tag": "0003_serious_invaders",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1771016434763,
+      "tag": "0004_dapper_blackheart",
+      "breakpoints": true
     }
   ]
 }

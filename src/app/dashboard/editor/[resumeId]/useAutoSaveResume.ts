@@ -15,7 +15,7 @@ export default function useAutoSaveResume(resumeData: ResumeValues) {
     // ---- Refs keep mutable state without causing re-renders ----
     const lastSavedJson = useRef(JSON.stringify(resumeData));
     const latestDataRef = useRef(resumeData);
-    const timerRef = useRef<ReturnType<typeof setTimeout>>(null);
+    const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
     const savingRef = useRef(false);
 
     // Always keep the ref pointing at the latest data
