@@ -10,7 +10,7 @@ const isDev = process.env.NEXTJS_ENV === "development";
 // Define an asynchronous function to build your auth configuration
 async function authBuilder() {
     const dbInstance = await getDb();
-    const ctx = getCloudflareContext();
+    const ctx = await getCloudflareContext({ async: true });
     const env = ctx.env as unknown as {
         GOOGLE_CLIENT_ID: string;
         GOOGLE_CLIENT_SECRET: string;

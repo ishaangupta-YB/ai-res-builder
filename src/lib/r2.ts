@@ -1,7 +1,7 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 
 export async function getR2Bucket(): Promise<R2Bucket> {
-    const ctx = await getCloudflareContext();
+    const ctx = await getCloudflareContext({ async: true });
     const env = ctx.env as unknown as { R2_BUCKET: R2Bucket };
     return env.R2_BUCKET;
 }

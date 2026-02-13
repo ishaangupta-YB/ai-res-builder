@@ -6,7 +6,7 @@ let dbInstance: ReturnType<typeof drizzle<typeof schema>> | null = null;
 
 export async function getDb() {
     if (!dbInstance) {
-        const ctx = await getCloudflareContext();
+        const ctx = await getCloudflareContext({ async: true });
         const env = ctx.env as unknown as { DB: D1Database };
         dbInstance = drizzle(env.DB, { schema });
     }

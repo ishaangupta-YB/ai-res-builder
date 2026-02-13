@@ -100,6 +100,7 @@ export function DashboardNavbar({ user }: DashboardNavbarProps) {
                     })}
                 </nav>
 
+
                 <div className="ml-auto flex items-center gap-3">
                     <ModeToggle />
 

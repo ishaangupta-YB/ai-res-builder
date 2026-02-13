@@ -1,6 +1,8 @@
 import { requireSession } from "@/lib/auth-server";
 import { DashboardNavbar } from "@/components/dashboard-navbar";
 
+export const dynamic = "force-dynamic";
+
 export default async function DashboardLayout({
     children,
 }: {
