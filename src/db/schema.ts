@@ -17,6 +17,7 @@ export const resumes = sqliteTable("resumes", {
     photoUrl: text("photo_url"),
     colorHex: text("color_hex").notNull().default("#000000"),
     borderStyle: text("border_style").notNull().default("squircle"),
+    layout: text("layout").notNull().default("single-column"), // "single-column" | "two-column" | "split-date"
     summary: text("summary"),
     firstName: text("first_name"),
     lastName: text("last_name"),
@@ -495,10 +496,37 @@ export const userFiles = sqliteTable("user_files", {
         .default(sql`(unixepoch())`),
 });
 
-export const userFilesRelations = relations(userFiles, ({ one }) => ({
+export const userFilesRelations = relations(userFiles, ({ one, many }) => ({
     resume: one(resumes, {
         fields: [userFiles.resumeId],
         references: [resumes.id],
+    }),
+    aiResults: many(aiResults),
+}));
+
+// ---------------------------------------------------------------------------
+// AI Results Cache (extraction + analysis)
+// ---------------------------------------------------------------------------
+export const aiResults = sqliteTable("ai_results", {
+    id: text("id")
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    userId: text("user_id").notNull(),
+    userFileId: text("user_file_id")
+        .notNull()
+        .references(() => userFiles.id, { onDelete: "cascade" }),
+    resultType: text("result_type").notNull(), // "extraction" | "analysis"
+    resultData: text("result_data", { mode: "json" }).notNull(),
+    modelId: text("model_id"),
+    createdAt: integer("created_at", { mode: "timestamp" })
+        .notNull()
+        .default(sql`(unixepoch())`),
+});
+
+export const aiResultsRelations = relations(aiResults, ({ one }) => ({
+    userFile: one(userFiles, {
+        fields: [aiResults.userFileId],
+        references: [userFiles.id],
     }),
 }));
 
@@ -532,4 +560,6 @@ export const schema = {
     userSubscriptions,
     userFiles,
     userFilesRelations,
+    aiResults,
+    aiResultsRelations,
 } as const;

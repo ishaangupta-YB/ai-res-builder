@@ -10,6 +10,7 @@ import {
     ExternalLink,
 } from "lucide-react";
 import { DEFAULT_SECTION_ORDER } from "./sectionConfig";
+import { cn } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -57,10 +58,30 @@ function dateRange(start?: string, end?: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Section heading with extending horizontal rule
+// Components
 // ---------------------------------------------------------------------------
 
-function SectionHeading({ children }: { children: React.ReactNode }) {
+function SectionHeading({
+    children,
+    layout,
+}: {
+    children: React.ReactNode;
+    layout?: string;
+}) {
+    // Professional/Simple: Line + Uppercase
+    // Modern: Icon + Uppercase (handled in block maybe? or just style here)
+    // Creative: Bubble font?
+
+    if (layout === "two-column") {
+        return (
+            <div className="mb-2 mt-4">
+                <h3 className="border-b-2 border-current pb-1 text-[13px] font-black uppercase tracking-wider">
+                    {children}
+                </h3>
+            </div>
+        );
+    }
+
     return (
         <div className="mb-[6px] mt-[14px] flex items-baseline gap-2">
             <h3 className="whitespace-nowrap text-[11.5px] font-bold uppercase tracking-[0.08em]">
@@ -71,10 +92,6 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
     );
 }
 
-// ---------------------------------------------------------------------------
-// Inline contact item
-// ---------------------------------------------------------------------------
-
 function ContactItem({
     icon: Icon,
     children,
@@ -83,7 +100,7 @@ function ContactItem({
     children: React.ReactNode;
 }) {
     return (
-        <span className="inline-flex items-center gap-[3px]">
+        <span className="inline-flex items-center gap-[4px]">
             <Icon className="h-[10px] w-[10px] shrink-0 opacity-70" />
             <span>{children}</span>
         </span>
@@ -91,10 +108,15 @@ function ContactItem({
 }
 
 // ---------------------------------------------------------------------------
-// Template sections
+// Block Renderers
 // ---------------------------------------------------------------------------
 
-function HeaderBlock({ data }: { data: ResumeValues }) {
+interface BlockProps {
+    data: ResumeValues;
+    layout?: string;
+}
+
+function HeaderBlock({ data, layout }: BlockProps) {
     const fv = data.fieldVisibility;
     const firstName = isFieldVisible(fv, "firstName")
         ? data.firstName
@@ -184,27 +206,56 @@ function HeaderBlock({ data }: { data: ResumeValues }) {
     if (!fullName && !jobTitle && contactItems.length === 0 && !photoUrl)
         return null;
 
-    return (
-        <div className="mb-[2px]">
-            <div className="flex gap-3">
-                {/* Photo */}
+    // Two-column layout header (Sidebar style handled via CSS grid in parent, but inner content here)
+    if (layout === "two-column") {
+        return (
+            <div className="mb-6 text-center">
                 {photoUrl && (
-                    // eslint-disable-next-line @next/next/no-img-element
                     <img
                         src={photoUrl}
                         alt=""
-                        className="h-[60px] w-[60px] shrink-0 object-cover"
-                        style={{ borderRadius: "50%" }}
+                        className="mx-auto mb-4 h-32 w-32 rounded-full border-4 border-white object-cover shadow-sm"
+                    />
+                )}
+                <div>
+                    <h1 className="mb-2 text-[26px] font-black leading-none tracking-tight">
+                        {fullName || "Your Name"}
+                    </h1>
+                    {jobTitle && (
+                        <p className="mb-4 text-[14px] font-medium italic opacity-90">
+                            {jobTitle}
+                        </p>
+                    )}
+                    {contactItems.length > 0 && (
+                        <div className="flex flex-col gap-1.5 text-[10px] opacity-90">
+                            {contactItems}
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    }
+
+    // Single / Split-Date Layout Header
+    return (
+        <div className="mb-[18px]">
+            <div className="flex items-start gap-5">
+                {/* Photo (optional) */}
+                {photoUrl && (
+                    <img
+                        src={photoUrl}
+                        alt=""
+                        className="h-[68px] w-[68px] shrink-0 rounded-full object-cover"
                     />
                 )}
                 <div className="flex-1">
                     {/* Name + designation */}
-                    <div className="flex items-baseline gap-3">
-                        <span className="text-[22px] font-bold leading-tight">
+                    <div className="flex flex-col gap-1">
+                        <span className="text-[28px] font-bold leading-none tracking-tight">
                             {fullName || "Your Name"}
                         </span>
                         {jobTitle && (
-                            <span className="text-[13px] italic opacity-80">
+                            <span className="text-[14px] font-medium text-current/80">
                                 {jobTitle}
                             </span>
                         )}
@@ -212,7 +263,7 @@ function HeaderBlock({ data }: { data: ResumeValues }) {
 
                     {/* Contact row */}
                     {contactItems.length > 0 && (
-                        <div className="mt-[5px] flex flex-wrap items-center gap-x-3 gap-y-[2px] text-[9px] leading-snug">
+                        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] leading-snug text-current/75">
                             {contactItems}
                         </div>
                     )}
@@ -222,29 +273,49 @@ function HeaderBlock({ data }: { data: ResumeValues }) {
     );
 }
 
-function ProfileBlock({ data }: { data: ResumeValues }) {
+function ProfileBlock({ data, layout }: BlockProps) {
     if (!data.summary) return null;
     return (
         <div style={{ breakInside: "avoid" }}>
-            <SectionHeading>Profile</SectionHeading>
-            <p className="text-[10.5px] leading-[1.55]">{data.summary}</p>
+            <SectionHeading layout={layout}>Profile</SectionHeading>
+            <p className="text-[10.5px] leading-[1.6] opacity-90">
+                {data.summary}
+            </p>
         </div>
     );
 }
 
-function SkillsBlock({ data }: { data: ResumeValues }) {
+function SkillsBlock({ data, layout }: BlockProps) {
     if (!data.skills || data.skills.length === 0) return null;
-    // Render in multi-column bullet list (3 cols on wider, 2 on narrow)
+
+    if (layout === "two-column") {
+        return (
+            <div style={{ breakInside: "avoid" }}>
+                <SectionHeading layout={layout}>Skills</SectionHeading>
+                <div className="flex flex-wrap gap-1.5">
+                    {data.skills.map((skill, i) => (
+                        <span
+                            key={i}
+                            className="rounded-sm bg-current/10 px-1.5 py-0.5 text-[9.5px] font-semibold"
+                        >
+                            {skill}
+                        </span>
+                    ))}
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div style={{ breakInside: "avoid" }}>
-            <SectionHeading>Skills</SectionHeading>
+            <SectionHeading layout={layout}>Skills</SectionHeading>
             <ul
-                className="columns-3 gap-x-4 text-[10px] leading-[1.6]"
+                className="columns-3 gap-x-6 text-[10.5px] leading-[1.6]"
                 style={{ columnRule: "none" }}
             >
                 {data.skills.map((skill, i) => (
                     <li key={i} className="break-inside-avoid pl-2">
-                        <span className="mr-1.5">•</span>
+                        <span className="mr-1.5 opacity-60">•</span>
                         {skill}
                     </li>
                 ))}
@@ -253,50 +324,92 @@ function SkillsBlock({ data }: { data: ResumeValues }) {
     );
 }
 
-function ExperienceBlock({ data }: { data: ResumeValues }) {
+function ExperienceBlock({ data, layout }: BlockProps) {
     const items = data.workExperiences?.filter((e) => e.visible !== false);
     if (!items || items.length === 0) return null;
+
+    // Split Date Layout (Simple) vs Single/Two Column
+    // In Simple, dates are on the left (grid-cols-[110px_1fr])
+    // In Professional, dates are usually right-aligned or subtitle
+    // In Two Column, space is tight, so maybe subtitle
+
+    const isSplitDate = layout === "split-date";
+
     return (
         <div>
-            <SectionHeading>Professional Experience</SectionHeading>
-            <div className="space-y-[10px]">
+            <SectionHeading layout={layout}>
+                Professional Experience
+            </SectionHeading>
+            <div className="space-y-4">
                 {items.map((exp, i) => (
                     <div
                         key={exp.id || i}
-                        className="grid grid-cols-[110px_1fr] gap-x-3 text-[10.5px]"
+                        className={cn(
+                            "group",
+                            isSplitDate
+                                ? "grid grid-cols-[90px_1fr] gap-x-4"
+                                : "block",
+                        )}
                         style={{ breakInside: "avoid" }}
                     >
-                        {/* Left col: dates + location */}
-                        <div className="text-[9.5px] leading-[1.6] opacity-75">
-                            {dateRange(exp.startDate, exp.endDate) && (
-                                <div>{dateRange(exp.startDate, exp.endDate)}</div>
-                            )}
-                            {exp.location && <div>{exp.location}</div>}
-                        </div>
-                        {/* Right col: title, company, description */}
+                        {/* Dates (Left for split-date) */}
+                        {isSplitDate && (
+                            <div className="pt-[1.5px] text-right text-[9.5px] font-medium opacity-70">
+                                {dateRange(exp.startDate, exp.endDate) && (
+                                    <div>
+                                        {dateRange(exp.startDate, exp.endDate)}
+                                    </div>
+                                )}
+                                {exp.location && (
+                                    <div className="mt-0.5 opacity-80">
+                                        {exp.location}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
                         <div>
-                            <p className="font-bold leading-snug">
-                                {exp.position || "Position"}
-                            </p>
-                            {(exp.company || exp.subheading) && (
-                                <p className="italic leading-snug opacity-80">
+                            {/* Header Row */}
+                            <div className="flex flex-wrap items-baseline justify-between gap-x-2">
+                                <h4 className="text-[11px] font-bold">
+                                    {exp.position || "Position"}
+                                </h4>
+                                {!isSplitDate &&
+                                    dateRange(exp.startDate, exp.endDate) && (
+                                        <span className="text-[10px] font-medium opacity-70">
+                                            {dateRange(
+                                                exp.startDate,
+                                                exp.endDate,
+                                            )}
+                                        </span>
+                                    )}
+                            </div>
+
+                            {/* Subheader */}
+                            <div className="mb-1 flex flex-wrap items-center justify-between gap-x-2 text-[10.5px]">
+                                <span className="font-semibold italic opacity-90">
                                     {exp.company}
-                                    {exp.subheading && exp.company
-                                        ? ` · ${exp.subheading}`
-                                        : exp.subheading || ""}
-                                </p>
-                            )}
+                                    {exp.subheading && ` · ${exp.subheading}`}
+                                </span>
+                                {!isSplitDate && exp.location && (
+                                    <span className="opacity-70">
+                                        {exp.location}
+                                    </span>
+                                )}
+                            </div>
+
+                            {/* Description */}
                             {exp.description && (
-                                <ul className="mt-[3px] space-y-[1px] text-[10px] leading-[1.55]">
+                                <ul className="space-y-[2px] text-[10px] leading-[1.5]">
                                     {exp.description
                                         .split("\n")
                                         .filter(Boolean)
                                         .map((line, j) => (
                                             <li
                                                 key={j}
-                                                className="pl-2"
+                                                className="relative pl-3 opacity-90"
                                             >
-                                                <span className="mr-1">•</span>
+                                                <span className="absolute left-0 top-[5px] h-[3px] w-[3px] rounded-full bg-current opacity-60" />
                                                 {line.replace(/^[•\-–]\s*/, "")}
                                             </li>
                                         ))}
@@ -310,39 +423,74 @@ function ExperienceBlock({ data }: { data: ResumeValues }) {
     );
 }
 
-function EducationBlock({ data }: { data: ResumeValues }) {
+function EducationBlock({ data, layout }: BlockProps) {
     const items = data.educations?.filter((e) => e.visible !== false);
     if (!items || items.length === 0) return null;
+
+    const isSplitDate = layout === "split-date";
+
     return (
         <div>
-            <SectionHeading>Education</SectionHeading>
-            <div className="space-y-[8px]">
+            <SectionHeading layout={layout}>Education</SectionHeading>
+            <div className="space-y-3">
                 {items.map((edu, i) => (
                     <div
                         key={edu.id || i}
-                        className="grid grid-cols-[110px_1fr] gap-x-3 text-[10.5px]"
+                        className={cn(
+                            isSplitDate
+                                ? "grid grid-cols-[90px_1fr] gap-x-4"
+                                : "block",
+                        )}
                         style={{ breakInside: "avoid" }}
                     >
-                        <div className="text-[9.5px] leading-[1.6] opacity-75">
-                            {dateRange(edu.startDate, edu.endDate) && (
-                                <div>
-                                    {dateRange(edu.startDate, edu.endDate)}
-                                </div>
-                            )}
-                            {edu.location && <div>{edu.location}</div>}
-                        </div>
+                        {isSplitDate && (
+                            <div className="pt-[1.5px] text-right text-[9.5px] font-medium opacity-70">
+                                {dateRange(edu.startDate, edu.endDate) && (
+                                    <div>
+                                        {dateRange(edu.startDate, edu.endDate)}
+                                    </div>
+                                )}
+                                {edu.location && (
+                                    <div className="mt-0.5 opacity-80">
+                                        {edu.location}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
                         <div>
-                            <p className="font-bold leading-snug">
-                                {edu.degree || "Degree"}
-                                {edu.fieldOfStudy &&
-                                    ` in ${edu.fieldOfStudy}`}
-                            </p>
-                            <p className="italic leading-snug opacity-80">
-                                {edu.school || "School"}
-                                {edu.gpa && ` · GPA: ${edu.gpa}`}
-                            </p>
+                            <div className="flex flex-wrap items-baseline justify-between gap-x-2">
+                                <h4 className="text-[11px] font-bold">
+                                    {edu.school || "School"}
+                                </h4>
+                                {!isSplitDate &&
+                                    dateRange(edu.startDate, edu.endDate) && (
+                                        <span className="text-[10px] font-medium opacity-70">
+                                            {dateRange(
+                                                edu.startDate,
+                                                edu.endDate,
+                                            )}
+                                        </span>
+                                    )}
+                            </div>
+                            <div className="mb-0.5 text-[10.5px]">
+                                <span className="font-medium italic opacity-90">
+                                    {edu.degree}
+                                </span>
+                                {edu.fieldOfStudy && (
+                                    <span className="opacity-90">
+                                        {" "}
+                                        in {edu.fieldOfStudy}
+                                    </span>
+                                )}
+                                {edu.gpa && (
+                                    <span className="ml-2 opacity-75">
+                                        GPA: {edu.gpa}
+                                    </span>
+                                )}
+                            </div>
                             {edu.description && (
-                                <p className="mt-[2px] text-[10px] leading-[1.55]">
+                                <p className="text-[10px] leading-[1.5] opacity-85 hover:opacity-100">
                                     {edu.description}
                                 </p>
                             )}
@@ -354,56 +502,75 @@ function EducationBlock({ data }: { data: ResumeValues }) {
     );
 }
 
-function ProjectsBlock({ data }: { data: ResumeValues }) {
+function ProjectsBlock({ data, layout }: BlockProps) {
     const items = data.projects?.filter((p) => p.visible !== false);
     if (!items || items.length === 0) return null;
+    const isSplitDate = layout === "split-date";
+
     return (
         <div>
-            <SectionHeading>Personal Projects</SectionHeading>
-            <div className="space-y-[10px]">
+            <SectionHeading layout={layout}>Personal Projects</SectionHeading>
+            <div className="space-y-3">
                 {items.map((p, i) => (
                     <div
                         key={p.id || i}
-                        className="grid grid-cols-[110px_1fr] gap-x-3 text-[10.5px]"
+                        className={cn(
+                            isSplitDate
+                                ? "grid grid-cols-[90px_1fr] gap-x-4"
+                                : "block",
+                        )}
                         style={{ breakInside: "avoid" }}
                     >
-                        <div className="text-[9.5px] leading-[1.6] opacity-75">
-                            {dateRange(p.startDate, p.endDate) && (
-                                <div>{dateRange(p.startDate, p.endDate)}</div>
-                            )}
-                        </div>
-                        <div>
-                            <p className="font-bold leading-snug">
-                                {p.link ? (
-                                    <a
-                                        href={p.link}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="underline decoration-current/40 hover:decoration-current"
-                                    >
-                                        {p.title || "Project"}
-                                        <ExternalLink className="ml-1 inline h-[9px] w-[9px] opacity-60" />
-                                    </a>
-                                ) : (
-                                    p.title || "Project"
+                        {isSplitDate && (
+                            <div className="pt-[1.5px] text-right text-[9.5px] font-medium opacity-70">
+                                {dateRange(p.startDate, p.endDate) && (
+                                    <div>
+                                        {dateRange(p.startDate, p.endDate)}
+                                    </div>
                                 )}
-                            </p>
+                            </div>
+                        )}
+
+                        <div>
+                            <div className="flex flex-wrap items-baseline justify-between gap-x-2">
+                                <h4 className="text-[11px] font-bold">
+                                    {p.link ? (
+                                        <a
+                                            href={p.link}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="underline decoration-current/40 hover:decoration-current"
+                                        >
+                                            {p.title || "Project"}
+                                            <ExternalLink className="ml-1 inline h-[9px] w-[9px] opacity-60" />
+                                        </a>
+                                    ) : (
+                                        p.title || "Project"
+                                    )}
+                                </h4>
+                                {!isSplitDate &&
+                                    dateRange(p.startDate, p.endDate) && (
+                                        <span className="text-[10px] font-medium opacity-70">
+                                            {dateRange(p.startDate, p.endDate)}
+                                        </span>
+                                    )}
+                            </div>
                             {p.subtitle && (
-                                <p className="italic leading-snug opacity-80">
+                                <p className="mb-0.5 text-[10.5px] font-medium italic opacity-85">
                                     {p.subtitle}
                                 </p>
                             )}
                             {p.description && (
-                                <ul className="mt-[3px] space-y-[1px] text-[10px] leading-[1.55]">
+                                <ul className="space-y-[2px] text-[10px] leading-[1.5]">
                                     {p.description
                                         .split("\n")
                                         .filter(Boolean)
                                         .map((line, j) => (
                                             <li
                                                 key={j}
-                                                className="pl-2"
+                                                className="relative pl-3 opacity-90"
                                             >
-                                                <span className="mr-1">•</span>
+                                                <span className="absolute left-0 top-[5px] h-[3px] w-[3px] rounded-full bg-current opacity-60" />
                                                 {line.replace(/^[•\-–]\s*/, "")}
                                             </li>
                                         ))}
@@ -417,19 +584,19 @@ function ProjectsBlock({ data }: { data: ResumeValues }) {
     );
 }
 
-function AwardsBlock({ data }: { data: ResumeValues }) {
+function AwardsBlock({ data, layout }: BlockProps) {
     const items = data.awards?.filter((a) => a.visible !== false);
     if (!items || items.length === 0) return null;
     return (
         <div style={{ breakInside: "avoid" }}>
-            <SectionHeading>Awards</SectionHeading>
-            <div className="space-y-[6px]">
+            <SectionHeading layout={layout}>Awards</SectionHeading>
+            <div className="space-y-2">
                 {items.map((a, i) => (
                     <div
                         key={a.id || i}
-                        className="grid grid-cols-[110px_1fr] gap-x-3 text-[10.5px]"
+                        className="grid grid-cols-[80px_1fr] gap-x-3 text-[10.5px]"
                     >
-                        <div className="text-[9.5px] opacity-75">
+                        <div className="text-[9.5px] opacity-70">
                             {a.date && fmtDate(a.date)}
                         </div>
                         <div>
@@ -437,14 +604,7 @@ function AwardsBlock({ data }: { data: ResumeValues }) {
                                 {a.title || "Award"}
                             </p>
                             {a.issuer && (
-                                <p className="italic opacity-80">
-                                    {a.issuer}
-                                </p>
-                            )}
-                            {a.description && (
-                                <p className="mt-[2px] text-[10px] leading-[1.55]">
-                                    {a.description}
-                                </p>
+                                <p className="italic opacity-80">{a.issuer}</p>
                             )}
                         </div>
                     </div>
@@ -454,50 +614,41 @@ function AwardsBlock({ data }: { data: ResumeValues }) {
     );
 }
 
-function PublicationsBlock({ data }: { data: ResumeValues }) {
+function PublicationsBlock({ data, layout }: BlockProps) {
     const items = data.publications?.filter((p) => p.visible !== false);
     if (!items || items.length === 0) return null;
     return (
         <div style={{ breakInside: "avoid" }}>
-            <SectionHeading>Publications</SectionHeading>
-            <div className="space-y-[6px]">
+            <SectionHeading layout={layout}>Publications</SectionHeading>
+            <div className="space-y-2">
                 {items.map((p, i) => (
-                    <div
-                        key={p.id || i}
-                        className="grid grid-cols-[110px_1fr] gap-x-3 text-[10.5px]"
-                    >
-                        <div className="text-[9.5px] opacity-75">
-                            {p.date && fmtDate(p.date)}
-                        </div>
-                        <div>
-                            <p className="font-bold leading-snug">
-                                {p.link ? (
-                                    <a
-                                        href={p.link}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="underline decoration-current/40 hover:decoration-current"
-                                    >
-                                        {p.title || "Publication"}
-                                        <ExternalLink className="ml-1 inline h-[9px] w-[9px] opacity-60" />
-                                    </a>
-                                ) : (
-                                    p.title || "Publication"
-                                )}
+                    <div key={p.id || i} className="text-[10.5px]">
+                        <p className="font-bold leading-snug">
+                            {p.link ? (
+                                <a
+                                    href={p.link}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="underline decoration-current/40 hover:decoration-current"
+                                >
+                                    {p.title || "Publication"}
+                                </a>
+                            ) : (
+                                p.title || "Publication"
+                            )}
+                            {p.date && (
+                                <span className="ml-2 font-normal opacity-70">
+                                    ({fmtDate(p.date)})
+                                </span>
+                            )}
+                        </p>
+                        {(p.publisher || p.authors) && (
+                            <p className="italic opacity-80">
+                                {[p.authors, p.publisher]
+                                    .filter(Boolean)
+                                    .join(" · ")}
                             </p>
-                            {(p.publisher || p.authors) && (
-                                <p className="italic opacity-80">
-                                    {[p.authors, p.publisher]
-                                        .filter(Boolean)
-                                        .join(" · ")}
-                                </p>
-                            )}
-                            {p.description && (
-                                <p className="mt-[2px] text-[10px] leading-[1.55]">
-                                    {p.description}
-                                </p>
-                            )}
-                        </div>
+                        )}
                     </div>
                 ))}
             </div>
@@ -505,42 +656,32 @@ function PublicationsBlock({ data }: { data: ResumeValues }) {
     );
 }
 
-function CertificatesBlock({ data }: { data: ResumeValues }) {
+function CertificatesBlock({ data, layout }: BlockProps) {
     const items = data.certificates?.filter((c) => c.visible !== false);
     if (!items || items.length === 0) return null;
     return (
         <div style={{ breakInside: "avoid" }}>
-            <SectionHeading>Certificates</SectionHeading>
-            <div className="space-y-[6px]">
+            <SectionHeading layout={layout}>Certificates</SectionHeading>
+            <div className="space-y-1.5">
                 {items.map((c, i) => (
-                    <div
-                        key={c.id || i}
-                        className="grid grid-cols-[110px_1fr] gap-x-3 text-[10.5px]"
-                    >
-                        <div className="text-[9.5px] opacity-75">
-                            {c.date && fmtDate(c.date)}
-                        </div>
-                        <div>
-                            <p className="font-bold leading-snug">
-                                {c.link ? (
-                                    <a
-                                        href={c.link}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="underline decoration-current/40 hover:decoration-current"
-                                    >
-                                        {c.title || "Certificate"}
-                                        <ExternalLink className="ml-1 inline h-[9px] w-[9px] opacity-60" />
-                                    </a>
-                                ) : (
-                                    c.title || "Certificate"
-                                )}
-                            </p>
-                            {c.issuer && (
-                                <p className="italic opacity-80">
-                                    {c.issuer}
-                                </p>
+                    <div key={c.id || i} className="text-[10.5px]">
+                        <p className="font-bold leading-snug">
+                            {c.link ? (
+                                <a
+                                    href={c.link}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="underline decoration-current/40 hover:decoration-current"
+                                >
+                                    {c.title || "Certificate"}
+                                </a>
+                            ) : (
+                                c.title || "Certificate"
                             )}
+                        </p>
+                        <div className="flex gap-2 text-[9.5px] opacity-75">
+                            {c.date && <span>{fmtDate(c.date)}</span>}
+                            {c.issuer && <span>{c.issuer}</span>}
                         </div>
                     </div>
                 ))}
@@ -549,38 +690,35 @@ function CertificatesBlock({ data }: { data: ResumeValues }) {
     );
 }
 
-function LanguagesBlock({ data }: { data: ResumeValues }) {
+function LanguagesBlock({ data, layout }: BlockProps) {
     const items = data.languages?.filter((l) => l.visible !== false);
     if (!items || items.length === 0) return null;
     return (
         <div style={{ breakInside: "avoid" }}>
-            <SectionHeading>Languages</SectionHeading>
-            <div className="flex flex-wrap gap-x-4 gap-y-[2px] text-[10.5px]">
+            <SectionHeading layout={layout}>Languages</SectionHeading>
+            <div className="flex flex-col gap-1 text-[10px]">
                 {items.map((l, i) => (
-                    <span key={l.id || i}>
+                    <div key={l.id || i} className="flex justify-between">
                         <span className="font-semibold">
                             {l.language || "Language"}
                         </span>
                         {l.proficiency && (
-                            <span className="opacity-75">
-                                {" "}
-                                ({l.proficiency})
-                            </span>
+                            <span className="opacity-75">{l.proficiency}</span>
                         )}
-                    </span>
+                    </div>
                 ))}
             </div>
         </div>
     );
 }
 
-function CoursesBlock({ data }: { data: ResumeValues }) {
+function CoursesBlock({ data, layout }: BlockProps) {
     const items = data.courses?.filter((c) => c.visible !== false);
     if (!items || items.length === 0) return null;
     return (
         <div style={{ breakInside: "avoid" }}>
-            <SectionHeading>Courses</SectionHeading>
-            <div className="space-y-[4px] text-[10.5px]">
+            <SectionHeading layout={layout}>Courses</SectionHeading>
+            <div className="space-y-1 text-[10.5px]">
                 {items.map((c, i) => (
                     <div key={c.id || i}>
                         <span className="font-bold">{c.name || "Course"}</span>
@@ -597,18 +735,16 @@ function CoursesBlock({ data }: { data: ResumeValues }) {
     );
 }
 
-function ReferencesBlock({ data }: { data: ResumeValues }) {
+function ReferencesBlock({ data, layout }: BlockProps) {
     const items = data.references?.filter((r) => r.visible !== false);
     if (!items || items.length === 0) return null;
     return (
         <div style={{ breakInside: "avoid" }}>
-            <SectionHeading>References</SectionHeading>
-            <div className="space-y-[6px] text-[10.5px]">
+            <SectionHeading layout={layout}>References</SectionHeading>
+            <div className="space-y-2 text-[10.5px]">
                 {items.map((r, i) => (
                     <div key={r.id || i}>
-                        <p className="font-bold">
-                            {r.name || "Reference"}
-                        </p>
+                        <p className="font-bold">{r.name || "Reference"}</p>
                         <p className="opacity-80">
                             {[r.position, r.company]
                                 .filter(Boolean)
@@ -621,12 +757,12 @@ function ReferencesBlock({ data }: { data: ResumeValues }) {
     );
 }
 
-function InterestsBlock({ data }: { data: ResumeValues }) {
+function InterestsBlock({ data, layout }: BlockProps) {
     const items = data.interests?.filter((i) => i.visible !== false);
     if (!items || items.length === 0) return null;
     return (
         <div style={{ breakInside: "avoid" }}>
-            <SectionHeading>Interests</SectionHeading>
+            <SectionHeading layout={layout}>Interests</SectionHeading>
             <p className="text-[10.5px]">
                 {items.map((i) => i.name).filter(Boolean).join(" · ")}
             </p>
@@ -637,7 +773,7 @@ function InterestsBlock({ data }: { data: ResumeValues }) {
 // Map section keys to renderers
 const BLOCK_RENDERERS: Record<
     string,
-    (props: { data: ResumeValues }) => React.ReactNode
+    (props: BlockProps) => React.ReactNode
 > = {
     profile: ProfileBlock,
     experience: ExperienceBlock,
@@ -676,6 +812,108 @@ export default function ResumeTemplate({
             : DEFAULT_SECTION_ORDER;
 
     const sv = resumeData.sectionVisibility;
+    const layout = (resumeData as any).layout || "single-column";
+
+    // -----------------------------------------------------------------------
+    // Two-Column Layout Implementation
+    // -----------------------------------------------------------------------
+    if (layout === "two-column") {
+        const leftColumnSections = [
+            "skills",
+            "contact",
+            "languages",
+            "certifications",
+            "awards",
+            "interests",
+        ]; // Heuristic for left column
+        // We'll actually iterate the sectionOrder and direct them to left (sidebar) or right (main)
+        // Sidebar usually contains: Header (sometimes), Skills, Languages, Contact, References
+        // Main contains: Profile, Experience, Education, Projects
+
+        return (
+            <div
+                className={cn("grid h-full grid-cols-[32%_1fr]", className)}
+                style={{
+                    fontFamily:
+                        fontFamily ||
+                        'Georgia, "Times New Roman", "Noto Serif", serif',
+                    color: resumeData.colorHex || "#000000",
+                }}
+            >
+                {/* Left Sidebar */}
+                <div className="flex flex-col gap-6 bg-current px-5 py-8 text-white">
+                    {/* Header in sidebar for two-column? "Creative" had it there. "Modern" had it top. 
+                        Let's put Header in Sidebar for now as per "Creative" analysis. 
+                     */}
+                    <div style={{ color: "white" }}>
+                        <HeaderBlock data={resumeData} layout={layout} />
+
+                        {sectionOrder.map((key) => {
+                            // Render specific small sections in sidebar
+                            if (
+                                [
+                                    "skills",
+                                    "languages",
+                                    "interests",
+                                    "awards",
+                                    "certificates",
+                                    "references",
+                                ].includes(key) &&
+                                isSectionVisible(sv, key)
+                            ) {
+                                const Renderer = BLOCK_RENDERERS[key];
+                                return (
+                                    <div key={key} className="mt-6">
+                                        {Renderer && (
+                                            <Renderer
+                                                data={resumeData}
+                                                layout={layout}
+                                            />
+                                        )}
+                                    </div>
+                                );
+                            }
+                            return null;
+                        })}
+                    </div>
+                </div>
+
+                {/* Right Main Content */}
+                <div className="flex flex-col gap-4 bg-white p-8 text-black">
+                    {sectionOrder.map((key) => {
+                        // Render main bulky sections here
+                        if (
+                            [
+                                "personal-info", // Skip, handled effectively by HeaderBlock
+                                "profile",
+                                "experience",
+                                "education",
+                                "projects",
+                                "courses",
+                                "publications",
+                            ].includes(key) &&
+                            isSectionVisible(sv, key)
+                        ) {
+                            if (key === "personal-info") return null; // Already rendered
+                            const Renderer = BLOCK_RENDERERS[key];
+                            return (
+                                <Renderer
+                                    key={key}
+                                    data={resumeData}
+                                    layout={layout}
+                                />
+                            );
+                        }
+                        return null;
+                    })}
+                </div>
+            </div>
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // Default (Single Column / Split Date)
+    // -----------------------------------------------------------------------
 
     return (
         <div
@@ -691,7 +929,7 @@ export default function ResumeTemplate({
         >
             {/* Header */}
             {isSectionVisible(sv, "personal-info") && (
-                <HeaderBlock data={resumeData} />
+                <HeaderBlock data={resumeData} layout={layout} />
             )}
 
             {/* Sections in order */}
@@ -700,7 +938,9 @@ export default function ResumeTemplate({
                 if (!isSectionVisible(sv, key)) return null;
                 const Renderer = BLOCK_RENDERERS[key];
                 if (!Renderer) return null;
-                return <Renderer key={key} data={resumeData} />;
+                return (
+                    <Renderer key={key} data={resumeData} layout={layout} />
+                );
             })}
         </div>
     );

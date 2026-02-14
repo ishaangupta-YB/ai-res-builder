@@ -132,6 +132,7 @@ export const resumeSchema = z.object({
         .regex(/^#[0-9a-fA-F]{3,8}$/)
         .optional(),
     borderStyle: z.string().max(50).optional(),
+    layout: z.enum(["single-column", "two-column", "split-date"]).optional(),
     summary: z.string().trim().max(1000).optional(),
     firstName: optionalString,
     lastName: optionalString,

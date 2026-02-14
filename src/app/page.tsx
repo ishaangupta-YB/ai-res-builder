@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useSession } from "@/lib/auth-client";
+import { Loader2 } from "lucide-react";
 import { ModeToggle } from "@/components/mode-toggle";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,6 +21,7 @@ import {
   Star,
   Zap,
 } from "lucide-react";
+// Loader2 imported above
 import { motion, useScroll, useTransform } from "framer-motion";
 import { useRef } from "react";
 import { cn } from "@/lib/utils";
@@ -36,18 +38,18 @@ const NeoButton = ({
   ...props
 }: NeoButtonProps) => {
   const shadcnVariant = variant === "primary" ? "default" : variant;
-  
+
   return (
     <Button
       variant={shadcnVariant}
       className={cn(
         "relative border-2 border-foreground font-bold transition-all hover:translate-x-[2px] hover:translate-y-[2px] active:translate-x-[4px] active:translate-y-[4px] active:shadow-none",
         variant === "primary" &&
-          "bg-primary text-primary-foreground shadow-[4px_4px_0px_0px_var(--color-foreground)] hover:shadow-[2px_2px_0px_0px_var(--color-foreground)]",
+        "bg-primary text-primary-foreground shadow-[4px_4px_0px_0px_var(--color-foreground)] hover:shadow-[2px_2px_0px_0px_var(--color-foreground)]",
         variant === "secondary" &&
-          "bg-secondary text-secondary-foreground shadow-[4px_4px_0px_0px_var(--color-foreground)] hover:shadow-[2px_2px_0px_0px_var(--color-foreground)]",
+        "bg-secondary text-secondary-foreground shadow-[4px_4px_0px_0px_var(--color-foreground)] hover:shadow-[2px_2px_0px_0px_var(--color-foreground)]",
         variant === "outline" &&
-          "bg-background text-foreground shadow-[4px_4px_0px_0px_var(--color-foreground)] hover:bg-accent hover:shadow-[2px_2px_0px_0px_var(--color-foreground)]",
+        "bg-background text-foreground shadow-[4px_4px_0px_0px_var(--color-foreground)] hover:bg-accent hover:shadow-[2px_2px_0px_0px_var(--color-foreground)]",
         className
       )}
       {...props}
@@ -72,7 +74,7 @@ const NeoCard = ({ className, children }: { className?: string; children: React.
 };
 
 export default function LandingPage() {
-  const { data: session } = useSession();
+  const { data: session, isPending } = useSession();
   const containerRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({
     target: containerRef,
@@ -98,7 +100,12 @@ export default function LandingPage() {
 
           <nav className="flex items-center gap-4">
             <ModeToggle />
-            {session ? (
+            {isPending ? (
+              <NeoButton disabled className="min-w-[120px]">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                LOADING
+              </NeoButton>
+            ) : session ? (
               <Link href="/dashboard">
                 <NeoButton>DASHBOARD</NeoButton>
               </Link>
@@ -149,15 +156,19 @@ export default function LandingPage() {
                 className="flex flex-col sm:flex-row items-center gap-6 pt-4"
               >
                 <Link href={session ? "/dashboard" : "/sign-in"} className="w-full sm:w-auto">
-                  <NeoButton size="lg" className="w-full sm:w-auto text-lg h-14 px-8">
-                    START BUILDING <ArrowRight className="ml-2 h-5 w-5" />
+                  <NeoButton size="lg" className="w-full sm:w-auto text-lg h-14 px-8" disabled={isPending}>
+                    {isPending ? (
+                      <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> LOADING...</>
+                    ) : (
+                      <>START BUILDING <ArrowRight className="ml-2 h-5 w-5" /></>
+                    )}
                   </NeoButton>
                 </Link>
                 <div className="flex items-center gap-2 text-sm font-bold">
                   <div className="flex -space-x-3">
                     {[1, 2, 3].map((i) => (
                       <div key={i} className="h-10 w-10 rounded-full border-2 border-foreground bg-muted flex items-center justify-center overflow-hidden">
-                         <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${i}`} alt="User" />
+                        <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${i}`} alt="User" />
                       </div>
                     ))}
                   </div>
@@ -175,7 +186,7 @@ export default function LandingPage() {
               </motion.div>
             </div>
           </div>
-          
+
           {/* Decorative Elements */}
           <motion.div style={{ y }} className="absolute -z-10 top-1/2 right-[5%] w-64 h-64 bg-primary/20 rounded-full blur-3xl" />
           <motion.div style={{ y: useTransform(scrollYProgress, [0, 1], ["0%", "-50%"]) }} className="absolute -z-10 bottom-0 left-[5%] w-72 h-72 bg-secondary/30 rounded-full blur-3xl" />
@@ -211,19 +222,19 @@ export default function LandingPage() {
             </div>
 
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-              <FeatureItem 
+              <FeatureItem
                 icon={<Briefcase className="h-8 w-8" />}
                 title="Smart Targeting"
                 description="Our AI analyzes job descriptions to tailor your resume keywords perfectly."
                 delay={0.1}
               />
-              <FeatureItem 
+              <FeatureItem
                 icon={<Sparkles className="h-8 w-8" />}
                 title="AI Writer"
                 description="Generate professional summaries and bullet points with a single click."
                 delay={0.2}
               />
-              <FeatureItem 
+              <FeatureItem
                 icon={<FileText className="h-8 w-8" />}
                 title="ATS Proof"
                 description="Templates tested against major Applicant Tracking Systems to ensure you get seen."
@@ -246,27 +257,27 @@ export default function LandingPage() {
                   We've simplified the process so you can focus on preparing for the interview.
                 </p>
                 <Link href={session ? "/dashboard" : "/sign-in"}>
-                    <NeoButton variant="secondary" className="w-full sm:w-auto">
-                      BUILD NOW
-                    </NeoButton>
+                  <NeoButton variant="secondary" className="w-full sm:w-auto">
+                    BUILD NOW
+                  </NeoButton>
                 </Link>
               </div>
 
               <div className="space-y-6">
-                <StepCard 
-                  number="01" 
-                  title="Import or Start Fresh" 
-                  description="Upload your old resume or LinkedIn PDF, or start from scratch with our guided wizard." 
+                <StepCard
+                  number="01"
+                  title="Import or Start Fresh"
+                  description="Upload your old resume or LinkedIn PDF, or start from scratch with our guided wizard."
                 />
-                <StepCard 
-                  number="02" 
-                  title="AI Enhancement" 
-                  description="Let our AI polish your grammar, suggest stronger action verbs, and optimize for keywords." 
+                <StepCard
+                  number="02"
+                  title="AI Enhancement"
+                  description="Let our AI polish your grammar, suggest stronger action verbs, and optimize for keywords."
                 />
-                <StepCard 
-                  number="03" 
-                  title="Download & Apply" 
-                  description="Export as a perfectly formatted PDF and start applying to your dream jobs instantly." 
+                <StepCard
+                  number="03"
+                  title="Download & Apply"
+                  description="Export as a perfectly formatted PDF and start applying to your dream jobs instantly."
                 />
               </div>
             </div>
@@ -275,26 +286,26 @@ export default function LandingPage() {
 
         {/* CTA Section */}
         <section className="py-24 container mx-auto px-4">
-           <div className="relative rounded-3xl border-4 border-foreground bg-foreground text-background p-12 md:p-24 text-center overflow-hidden shadow-[12px_12px_0px_0px_var(--color-primary)]">
-              <div className="relative z-10">
-                <h2 className="text-4xl md:text-6xl font-black mb-8 text-background">
-                  READY TO LEVEL UP?
-                </h2>
-                <p className="text-xl md:text-2xl text-background/80 mb-12 max-w-2xl mx-auto">
-                  Join thousands of professionals who have accelerated their careers with AI Resume.
-                </p>
-                <Link href={session ? "/dashboard" : "/sign-in"}>
-                  <NeoButton size="lg" className="bg-background text-foreground hover:bg-primary hover:text-primary-foreground border-background text-xl py-8 px-12 h-auto shadow-none hover:shadow-[6px_6px_0px_0px_var(--color-background)]">
-                    GET STARTED FREE
-                  </NeoButton>
-                </Link>
-              </div>
-              
-              {/* Abstract Background Shapes */}
-              <div className="absolute top-0 left-0 w-full h-full overflow-hidden opacity-10">
-                <div className="absolute -top-[50%] -left-[50%] w-[200%] h-[200%] bg-[repeating-linear-gradient(45deg,transparent,transparent_20px,var(--color-primary)_20px,var(--color-primary)_40px)] animate-[spin_60s_linear_infinite]" />
-              </div>
-           </div>
+          <div className="relative rounded-3xl border-4 border-foreground bg-foreground text-background p-12 md:p-24 text-center overflow-hidden shadow-[12px_12px_0px_0px_var(--color-primary)]">
+            <div className="relative z-10">
+              <h2 className="text-4xl md:text-6xl font-black mb-8 text-background">
+                READY TO LEVEL UP?
+              </h2>
+              <p className="text-xl md:text-2xl text-background/80 mb-12 max-w-2xl mx-auto">
+                Join thousands of professionals who have accelerated their careers with AI Resume.
+              </p>
+              <Link href={session ? "/dashboard" : "/sign-in"}>
+                <NeoButton size="lg" className="bg-background text-foreground hover:bg-primary hover:text-primary-foreground border-background text-xl py-8 px-12 h-auto shadow-none hover:shadow-[6px_6px_0px_0px_var(--color-background)]">
+                  GET STARTED FREE
+                </NeoButton>
+              </Link>
+            </div>
+
+            {/* Abstract Background Shapes */}
+            <div className="absolute top-0 left-0 w-full h-full overflow-hidden opacity-10">
+              <div className="absolute -top-[50%] -left-[50%] w-[200%] h-[200%] bg-[repeating-linear-gradient(45deg,transparent,transparent_20px,var(--color-primary)_20px,var(--color-primary)_40px)] animate-[spin_60s_linear_infinite]" />
+            </div>
+          </div>
         </section>
       </main>
 
@@ -304,7 +315,7 @@ export default function LandingPage() {
           <div className="flex flex-col items-center md:items-start gap-4">
             <Link href="/" className="flex items-center gap-2 font-black text-xl">
               <div className="h-8 w-8 bg-primary border-2 border-foreground flex items-center justify-center">
-                 <FileText className="h-5 w-5 text-primary-foreground" />
+                <FileText className="h-5 w-5 text-primary-foreground" />
               </div>
               AI RESUME
             </Link>
@@ -312,7 +323,7 @@ export default function LandingPage() {
               © {new Date().getFullYear()} AI Resume Builder.
             </p>
           </div>
-          
+
           <div className="flex gap-6 font-bold">
             <Link href="#" className="hover:text-primary hover:underline decoration-wavy underline-offset-4">Twitter</Link>
             <Link href="#" className="hover:text-primary hover:underline decoration-wavy underline-offset-4">GitHub</Link>

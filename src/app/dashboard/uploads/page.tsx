@@ -5,7 +5,7 @@ import { eq, and, desc } from "drizzle-orm";
 import { r2KeyToUrl } from "@/lib/r2";
 import { FileUp } from "lucide-react";
 import { UploadSection } from "./upload-section";
-import { FileRow } from "./file-row";
+import { UploadsClient } from "./uploads-client";
 
 export default async function UploadsPage() {
     const session = await requireSession();
@@ -29,7 +29,8 @@ export default async function UploadsPage() {
             <div className="mb-8">
                 <h1 className="text-3xl font-bold">Uploaded Resumes</h1>
                 <p className="mt-1 text-muted-foreground">
-                    Upload your existing resumes as PDFs for safekeeping
+                    Upload your existing resumes to recreate or analyze them
+                    with AI
                 </p>
             </div>
 
@@ -38,11 +39,7 @@ export default async function UploadsPage() {
             {filesWithUrls.length > 0 ? (
                 <div className="mt-8 space-y-3">
                     <h2 className="text-lg font-semibold">Your Files</h2>
-                    <div className="divide-y rounded-lg border">
-                        {filesWithUrls.map((file) => (
-                            <FileRow key={file.id} file={file} />
-                        ))}
-                    </div>
+                    <UploadsClient files={filesWithUrls} />
                 </div>
             ) : (
                 <div className="mt-12 flex flex-col items-center justify-center rounded-lg border-2 border-dashed py-16">
