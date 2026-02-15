@@ -12,7 +12,7 @@
 
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/auth-server";
-import { getR2Bucket } from "@/lib/r2";
+import { headR2Object } from "@/lib/r2-presign";
 import { getDb } from "@/db";
 import { userFiles } from "@/db/schema";
 
@@ -48,10 +48,9 @@ export async function POST(request: Request) {
             );
         }
 
-        const bucket = await getR2Bucket();
-
-        // Verify file exists in R2
-        const head = await bucket.head(r2Key);
+        // Verify file exists in R2 via S3-compatible HEAD request
+        // (uses the same endpoint as presigned uploads, works in dev + prod)
+        const head = await headR2Object(r2Key);
 
         if (!head) {
             return NextResponse.json(

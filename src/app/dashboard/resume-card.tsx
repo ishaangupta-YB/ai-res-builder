@@ -29,12 +29,13 @@ import type { ResumeServerData } from "@/lib/types";
 import ResumeTemplate from "./editor/[resumeId]/ResumeTemplate";
 import PrintableResume from "./editor/[resumeId]/PrintableResume";
 import {
-    PAGE_WIDTH,
+    CONTENT_WIDTH,
     PAGE_PADDING_X,
     PAGE_PADDING_Y,
-    FONT_FAMILIES,
-} from "./editor/[resumeId]/ResumePreviewSection";
-import type { PreviewFontFamily } from "./editor/[resumeId]/ResumePreviewSection";
+    PAGE_WIDTH,
+    RESUME_PRINT_PAGE_STYLE,
+    getPreviewFontFamilyCss,
+} from "./editor/[resumeId]/previewConfig";
 
 interface ResumeCardProps {
     resume: ResumeServerData;
@@ -50,13 +51,9 @@ export function ResumeCard({ resume }: ResumeCardProps) {
 
     const resumeValues = useMemo(() => mapToResumeValues(resume), [resume]);
 
-    const fontFamilyCss =
-        FONT_FAMILIES.find(
-            (f) =>
-                f.value ===
-                ((resumeValues.fontFamily as PreviewFontFamily) ?? "serif"),
-        )?.css ?? FONT_FAMILIES[0].css;
+    const fontFamilyCss = getPreviewFontFamilyCss(resumeValues.fontFamily);
     const fontScale = (resumeValues.fontSize ?? 10) / 10;
+    const effectiveContentWidth = CONTENT_WIDTH / fontScale;
     const thumbScale = cardWidth / PAGE_WIDTH;
 
     useEffect(() => {
@@ -72,6 +69,7 @@ export function ResumeCard({ resume }: ResumeCardProps) {
     const handlePrint = useReactToPrint({
         contentRef: printRef,
         documentTitle: resume.title || "Resume",
+        pageStyle: RESUME_PRINT_PAGE_STYLE,
     });
 
     const editorHref = `/dashboard/editor/${resume.id}`;
@@ -113,11 +111,13 @@ export function ResumeCard({ resume }: ResumeCardProps) {
                                 padding: `${PAGE_PADDING_Y}px ${PAGE_PADDING_X}px`,
                             }}
                         >
-                            <div style={{ zoom: fontScale }}>
-                                <ResumeTemplate
-                                    resumeData={resumeValues}
-                                    fontFamily={fontFamilyCss}
-                                />
+                            <div style={{ width: effectiveContentWidth }}>
+                                <div style={{ zoom: fontScale }}>
+                                    <ResumeTemplate
+                                        resumeData={resumeValues}
+                                        fontFamily={fontFamilyCss}
+                                    />
+                                </div>
                             </div>
                         </div>
                     </div>

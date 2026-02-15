@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Plus, Trash2, Eye, EyeOff, Pencil, Check, X, Copy } from "lucide-react";
 import type { EditorFormProps } from "@/lib/types";
+import AiEnhanceButton from "./AiEnhanceButton";
 import type { ResumeValues } from "@/lib/validation";
 
 type WorkExperienceEntry = NonNullable<
@@ -271,7 +272,24 @@ export default function ExperienceSection({
                         </div>
                     </div>
                     <div className="space-y-1.5">
-                        <Label htmlFor="exp-desc">Description</Label>
+                        <div className="flex items-center gap-1">
+                            <Label htmlFor="exp-desc">Description</Label>
+                            <AiEnhanceButton
+                                fieldType="experience"
+                                currentText={localEntry.description ?? ""}
+                                context={{
+                                    position: localEntry.position ?? "",
+                                    company: localEntry.company ?? "",
+                                    location: localEntry.location ?? "",
+                                }}
+                                onEnhanced={(text) =>
+                                    setLocalEntry((p) => ({
+                                        ...p!,
+                                        description: text || undefined,
+                                    }))
+                                }
+                            />
+                        </div>
                         <Textarea
                             id="exp-desc"
                             value={localEntry.description ?? ""}

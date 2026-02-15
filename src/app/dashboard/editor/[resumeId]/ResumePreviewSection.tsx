@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useEffect } from "react";
+import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
@@ -14,78 +14,21 @@ import {
 import { FileText, Maximize2, Minus, Plus, Printer } from "lucide-react";
 import { useReactToPrint } from "react-to-print";
 import type { ResumeValues } from "@/lib/validation";
-import type { Dispatch, SetStateAction } from "react";
-import ResumeTemplate from "./ResumeTemplate";
 import PrintableResume from "./PrintableResume";
-
-// ---------------------------------------------------------------------------
-// A4 page constants (px at screen resolution)
-// ---------------------------------------------------------------------------
-export const PAGE_WIDTH = 680;
-const A4_RATIO = 297 / 210;
-export const PAGE_HEIGHT = Math.round(PAGE_WIDTH * A4_RATIO); // ~962
-export const PAGE_PADDING_X = 40;
-export const PAGE_PADDING_Y = 32;
-export const CONTENT_HEIGHT = PAGE_HEIGHT - PAGE_PADDING_Y * 2; // ~898
-export const CONTENT_WIDTH = PAGE_WIDTH - PAGE_PADDING_X * 2; // 600
-
-export const FONT_FAMILIES = [
-    {
-        label: "Serif",
-        value: "serif",
-        css: 'Georgia, "Times New Roman", "Noto Serif", serif',
-    },
-    {
-        label: "Sans Serif",
-        value: "sans-serif",
-        css: '"Helvetica Neue", Arial, "Segoe UI", sans-serif',
-    },
-    {
-        label: "Monospace",
-        value: "monospace",
-        css: '"Courier New", Courier, monospace',
-    },
-    {
-        label: "System",
-        value: "system",
-        css: 'system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"',
-    },
-    {
-        label: "Garamond",
-        value: "garamond",
-        css: 'Garamond, "Hoefler Text", "Times New Roman", Times, serif',
-    },
-    {
-        label: "Verdana",
-        value: "verdana",
-        css: 'Verdana, Geneva, Tahoma, sans-serif',
-    },
-    {
-        label: "Slab",
-        value: "slab",
-        css: '"Rockwell", "Roboto Slab", "DejaVu Serif", "Sitka Small", serif',
-    },
-] as const;
-
-export const FONT_SIZE_MIN = 8;
-export const FONT_SIZE_MAX = 14;
-export const FONT_SIZE_DEFAULT = 10;
-
-export type PreviewFontFamily = (typeof FONT_FAMILIES)[number]["value"];
-
-export interface PreviewSettings {
-    fontSize: number;
-    fontFamily: PreviewFontFamily;
-}
-
-export const DEFAULT_PREVIEW_SETTINGS: PreviewSettings = {
-    fontSize: FONT_SIZE_DEFAULT,
-    fontFamily: "serif",
-};
-
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
+import {
+    FONT_FAMILIES,
+    FONT_SIZE_MAX,
+    FONT_SIZE_MIN,
+    PAGE_HEIGHT,
+    PAGE_PADDING_X,
+    PAGE_PADDING_Y,
+    PAGE_WIDTH,
+    RESUME_PRINT_PAGE_STYLE,
+    getPreviewFontFamilyCss,
+    type PreviewFontFamily,
+    type PreviewSettings,
+} from "./previewConfig";
+import { ResumePageFlow, useResumePagination } from "./resumePagination";
 
 interface ResumePreviewSectionProps {
     resumeData: ResumeValues;
@@ -104,53 +47,42 @@ export default function ResumePreviewSection({
 }: ResumePreviewSectionProps) {
     const fontSize = previewSettings.fontSize;
     const fontFamilyKey = previewSettings.fontFamily;
+    const fontScale = fontSize / 10;
+    const fontFamilyCss = getPreviewFontFamilyCss(fontFamilyKey);
 
-    const measureRef = useRef<HTMLDivElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const printRef = useRef<HTMLDivElement>(null);
-    const [contentHeight, setContentHeight] = useState(0);
     const [containerWidth, setContainerWidth] = useState(PAGE_WIDTH + 48);
+
+    const {
+        numPages,
+        measureFlowRef,
+        effectiveContentWidth,
+        effectiveContentHeight,
+    } = useResumePagination({
+        resumeData,
+        fontFamilyCss,
+        fontScale,
+    });
 
     const handlePrint = useReactToPrint({
         contentRef: printRef,
         documentTitle: resumeData.title || "Resume",
+        pageStyle: RESUME_PRINT_PAGE_STYLE,
     });
 
-    const fontScale = fontSize / 10;
-    const fontFamilyCss =
-        FONT_FAMILIES.find((f) => f.value === fontFamilyKey)?.css ??
-        FONT_FAMILIES[0].css;
-
-    // Observe content height for pagination
     useEffect(() => {
-        const el = measureRef.current;
-        if (!el) return;
+        const element = containerRef.current;
+        if (!element) return;
+
         const observer = new ResizeObserver((entries) => {
-            const h =
-                entries[0]?.borderBoxSize?.[0]?.blockSize ??
-                entries[0]?.contentRect.height ??
-                0;
-            setContentHeight(h);
+            setContainerWidth(entries[0]?.contentRect.width ?? PAGE_WIDTH + 48);
         });
-        observer.observe(el);
+        observer.observe(element);
+
         return () => observer.disconnect();
     }, []);
 
-    // Observe container width for responsive page scaling
-    useEffect(() => {
-        const el = containerRef.current;
-        if (!el) return;
-        const observer = new ResizeObserver((entries) => {
-            setContainerWidth(
-                entries[0]?.contentRect.width ?? PAGE_WIDTH + 48,
-            );
-        });
-        observer.observe(el);
-        return () => observer.disconnect();
-    }, []);
-
-    const numPages = Math.max(1, Math.ceil(contentHeight / CONTENT_HEIGHT));
-    // Scale pages to fit container width (with 48px total horizontal padding)
     const displayScale = Math.min(
         1,
         Math.max(0.35, (containerWidth - 48) / PAGE_WIDTH),
@@ -158,13 +90,13 @@ export default function ResumePreviewSection({
 
     const hasAnyContent = Boolean(
         resumeData.firstName ||
-            resumeData.lastName ||
-            resumeData.summary ||
-            resumeData.jobTitle ||
-            resumeData.workExperiences?.length ||
-            resumeData.educations?.length ||
-            resumeData.skills?.length ||
-            resumeData.projects?.length,
+        resumeData.lastName ||
+        resumeData.summary ||
+        resumeData.jobTitle ||
+        resumeData.workExperiences?.length ||
+        resumeData.educations?.length ||
+        resumeData.skills?.length ||
+        resumeData.projects?.length,
     );
 
     return (
@@ -174,199 +106,175 @@ export default function ResumePreviewSection({
                 className,
             )}
         >
-            {/* Toolbar: font size, font family, page count */}
-            <div className="flex shrink-0 flex-wrap items-center gap-3 border-b bg-muted/30 px-4 py-2">
-                {/* Font size */}
-                <div className="flex items-center gap-1.5">
-                    <span className="text-xs text-muted-foreground">Size</span>
-                    <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() =>
-                            onPreviewSettingsChange((prev) => ({
-                                ...prev,
-                                fontSize: Math.max(FONT_SIZE_MIN, prev.fontSize - 1),
-                            }))
-                        }
-                        disabled={fontSize <= FONT_SIZE_MIN}
-                    >
-                        <Minus className="h-4 w-4" />
-                    </Button>
-                    <span className="w-6 text-center text-sm font-medium tabular-nums">
-                        {fontSize}
-                    </span>
-                    <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() =>
-                            onPreviewSettingsChange((prev) => ({
-                                ...prev,
-                                fontSize: Math.min(FONT_SIZE_MAX, prev.fontSize + 1),
-                            }))
-                        }
-                        disabled={fontSize >= FONT_SIZE_MAX}
-                    >
-                        <Plus className="h-4 w-4" />
-                    </Button>
-                </div>
-
-                {/* Font family */}
-                <Select
-                    value={fontFamilyKey}
-                    onValueChange={(value) =>
-                        onPreviewSettingsChange((prev) => ({
-                            ...prev,
-                            fontFamily: value as PreviewFontFamily,
-                        }))
-                    }
-                >
-                    <SelectTrigger className="h-8 w-[130px] text-xs">
-                        <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {FONT_FAMILIES.map((f) => (
-                            <SelectItem key={f.value} value={f.value}>
-                                {f.label}
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-
-                {/* Page indicator + actions */}
-                <div className="ml-auto flex items-center gap-3">
-                    <span className="text-xs text-muted-foreground">
-                        {numPages} {numPages === 1 ? "page" : "pages"}
-                    </span>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handlePrint()}
-                    >
-                        <Printer className="mr-1.5 h-4 w-4" />
-                        Print
-                    </Button>
-                    {onPreviewOpen && (
+            <div className="absolute left-0 right-0 top-0 z-10 flex w-full justify-center p-4">
+                <div className="flex items-center gap-3 rounded-full border border-border/40 bg-background/80 px-4 py-2 shadow-sm backdrop-blur-md transition-all hover:border-border/80 hover:shadow-md supports-[backdrop-filter]:bg-background/60">
+                    <div className="flex items-center gap-1.5">
                         <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={onPreviewOpen}
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:bg-muted"
+                            onClick={() =>
+                                onPreviewSettingsChange((prev) => ({
+                                    ...prev,
+                                    fontSize: Math.max(FONT_SIZE_MIN, prev.fontSize - 1),
+                                }))
+                            }
+                            disabled={fontSize <= FONT_SIZE_MIN}
+                            title="Decrease font size"
                         >
-                            <Maximize2 className="mr-1.5 h-4 w-4" />
-                            Preview
+                            <Minus className="h-3.5 w-3.5" />
                         </Button>
-                    )}
-                </div>
-            </div>
-
-            {/* Hidden measurement container -- renders template off-screen to measure height */}
-            <div
-                aria-hidden
-                className="pointer-events-none absolute left-0 top-0 h-0 w-0 overflow-hidden"
-            >
-                <div style={{ width: CONTENT_WIDTH }}>
-                    <div ref={measureRef}>
-                        <div style={{ zoom: fontScale }}>
-                            <ResumeTemplate
-                                resumeData={resumeData}
-                                fontFamily={fontFamilyCss}
-                            />
+                        <div className="flex w-12 items-center justify-center">
+                            <span className="text-sm font-medium tabular-nums">
+                                {fontSize}px
+                            </span>
                         </div>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:bg-muted"
+                            onClick={() =>
+                                onPreviewSettingsChange((prev) => ({
+                                    ...prev,
+                                    fontSize: Math.min(FONT_SIZE_MAX, prev.fontSize + 1),
+                                }))
+                            }
+                            disabled={fontSize >= FONT_SIZE_MAX}
+                            title="Increase font size"
+                        >
+                            <Plus className="h-3.5 w-3.5" />
+                        </Button>
+                    </div>
+
+                    <div className="h-4 w-px bg-border" />
+
+                    <Select
+                        value={fontFamilyKey}
+                        onValueChange={(value) =>
+                            onPreviewSettingsChange((prev) => ({
+                                ...prev,
+                                fontFamily: value as PreviewFontFamily,
+                            }))
+                        }
+                    >
+                        <SelectTrigger className="h-8 w-[130px] border-none bg-transparent text-xs font-medium focus:ring-0">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent align="center">
+                            {FONT_FAMILIES.map((family) => (
+                                <SelectItem key={family.value} value={family.value}>
+                                    {family.label}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+
+                    <div className="h-4 w-px bg-border" />
+
+                    <div className="flex items-center gap-2">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:bg-muted"
+                            onClick={() => handlePrint()}
+                            title={`Print ${numPages} page${numPages === 1 ? "" : "s"}`}
+                        >
+                            <Printer className="h-4 w-4" />
+                        </Button>
+
+                        {onPreviewOpen && (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-muted-foreground hover:bg-muted"
+                                onClick={onPreviewOpen}
+                                title="Fullscreen preview"
+                            >
+                                <Maximize2 className="h-4 w-4" />
+                            </Button>
+                        )}
                     </div>
                 </div>
             </div>
 
-            {/* Scrollable preview area */}
+            <div
+                aria-hidden
+                className="pointer-events-none absolute top-0 opacity-0"
+                style={{ left: -10000 }}
+            >
+                <ResumePageFlow
+                    resumeData={resumeData}
+                    fontFamilyCss={fontFamilyCss}
+                    fontScale={fontScale}
+                    effectiveContentWidth={effectiveContentWidth}
+                    effectiveContentHeight={effectiveContentHeight}
+                    flowRef={measureFlowRef}
+                />
+            </div>
+
             <div
                 ref={containerRef}
-                className="relative flex-1 overflow-hidden bg-muted/50"
+                className="relative flex-1 overflow-hidden bg-muted/30"
             >
                 <ScrollArea className="h-full">
-                    <div className="flex flex-col items-center gap-6 p-6">
+                    <div className="flex flex-col items-center gap-6 pb-20 pt-24 px-6 md:pt-28">
                         {hasAnyContent ? (
-                            Array.from({ length: numPages }).map(
-                                (_, pageIndex) => (
-                                    <div key={pageIndex}>
-                                        {/* Responsive wrapper -- sizes to the scaled page */}
+                            Array.from({ length: numPages }).map((_, pageIndex) => (
+                                <div key={pageIndex}>
+                                    <div
+                                        style={{
+                                            width: PAGE_WIDTH * displayScale,
+                                            height: PAGE_HEIGHT * displayScale,
+                                        }}
+                                    >
                                         <div
+                                            className="relative rounded-sm bg-white shadow-2xl transition-shadow duration-300 dark:shadow-xl"
                                             style={{
-                                                width:
-                                                    PAGE_WIDTH * displayScale,
-                                                height:
-                                                    PAGE_HEIGHT * displayScale,
+                                                width: PAGE_WIDTH,
+                                                height: PAGE_HEIGHT,
+                                                transform: `scale(${displayScale})`,
+                                                transformOrigin: "top left",
                                             }}
                                         >
-                                            {/* Actual A4 page at fixed dimensions, scaled down to fit */}
                                             <div
-                                                className="relative rounded-sm bg-white shadow-md dark:shadow-lg"
+                                                className="absolute overflow-hidden"
                                                 style={{
-                                                    width: PAGE_WIDTH,
-                                                    height: PAGE_HEIGHT,
-                                                    transform: `scale(${displayScale})`,
-                                                    transformOrigin:
-                                                        "top left",
+                                                    top: PAGE_PADDING_Y,
+                                                    left: PAGE_PADDING_X,
+                                                    right: PAGE_PADDING_X,
                                                 }}
                                             >
-                                                {/* Content clip area -- fixed height per page */}
-                                                <div
-                                                    className="absolute overflow-hidden"
-                                                    style={{
-                                                        top: PAGE_PADDING_Y,
-                                                        left: PAGE_PADDING_X,
-                                                        right: PAGE_PADDING_X,
-                                                        height: CONTENT_HEIGHT,
-                                                    }}
-                                                >
-                                                    {/* Offset wrapper -- shifts content for each page */}
-                                                    <div
-                                                        style={{
-                                                            marginTop:
-                                                                -(
-                                                                    pageIndex *
-                                                                    CONTENT_HEIGHT
-                                                                ),
-                                                        }}
-                                                    >
-                                                        <div
-                                                            style={{
-                                                                zoom: fontScale,
-                                                            }}
-                                                        >
-                                                            <ResumeTemplate
-                                                                resumeData={
-                                                                    resumeData
-                                                                }
-                                                                fontFamily={
-                                                                    fontFamilyCss
-                                                                }
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                {/* Page number */}
-                                                <div className="absolute bottom-2 right-4 text-[10px] text-neutral-300">
-                                                    {pageIndex + 1} /{" "}
-                                                    {numPages}
-                                                </div>
+                                                <ResumePageFlow
+                                                    resumeData={resumeData}
+                                                    fontFamilyCss={fontFamilyCss}
+                                                    fontScale={fontScale}
+                                                    effectiveContentWidth={
+                                                        effectiveContentWidth
+                                                    }
+                                                    effectiveContentHeight={
+                                                        effectiveContentHeight
+                                                    }
+                                                    pageIndex={pageIndex}
+                                                />
+                                            </div>
+                                            <div className="absolute bottom-2 right-4 text-[10px] text-neutral-300">
+                                                {pageIndex + 1} / {numPages}
                                             </div>
                                         </div>
-
-                                        {/* Page break separator */}
-                                        {pageIndex < numPages - 1 && (
-                                            <div className="mx-auto mt-2 flex items-center gap-2 px-4">
-                                                <div className="h-px flex-1 bg-neutral-200 dark:bg-neutral-700" />
-                                                <span className="text-[10px] text-neutral-400">
-                                                    Page break
-                                                </span>
-                                                <div className="h-px flex-1 bg-neutral-200 dark:bg-neutral-700" />
-                                            </div>
-                                        )}
                                     </div>
-                                ),
-                            )
+
+                                    {pageIndex < numPages - 1 && (
+                                        <div className="mx-auto mt-2 flex items-center gap-2 px-4">
+                                            <div className="h-px flex-1 bg-neutral-200 dark:bg-neutral-700" />
+                                            <span className="text-[10px] text-neutral-400">
+                                                Page break
+                                            </span>
+                                            <div className="h-px flex-1 bg-neutral-200 dark:bg-neutral-700" />
+                                        </div>
+                                    )}
+                                </div>
+                            ))
                         ) : (
-                            /* Empty state: single blank A4 page */
                             <div
                                 style={{
                                     width: PAGE_WIDTH * displayScale,
@@ -374,7 +282,7 @@ export default function ResumePreviewSection({
                                 }}
                             >
                                 <div
-                                    className="relative rounded-sm bg-white shadow-md dark:shadow-lg"
+                                    className="relative rounded-sm bg-white shadow-xl dark:shadow-2xl"
                                     style={{
                                         width: PAGE_WIDTH,
                                         height: PAGE_HEIGHT,
@@ -385,12 +293,11 @@ export default function ResumePreviewSection({
                                     <div className="flex h-full flex-col items-center justify-center text-center">
                                         <FileText className="mb-3 h-10 w-10 text-neutral-200" />
                                         <p className="text-sm text-neutral-400">
-                                            Your resume preview will appear
-                                            here
+                                            Your resume preview will appear here
                                         </p>
                                         <p className="mt-1 text-xs text-neutral-300">
-                                            Start filling in the sections on
-                                            the left
+                                            Start filling in the sections on the
+                                            left
                                         </p>
                                     </div>
                                 </div>

@@ -1,8 +1,8 @@
 import { createAiGateway } from "ai-gateway-provider";
-import { createGoogleGenerativeAI } from "ai-gateway-provider/providers/google";
+import { createUnified } from "ai-gateway-provider/providers/unified";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 
-const MODEL_ID = "gemini-3-flash";
+const MODEL_ID = "google-ai-studio/gemini-3-flash-preview";
 
 let cachedModel: ReturnType<ReturnType<typeof createAiGateway>> | null = null;
 
@@ -21,10 +21,8 @@ export async function getAiModel() {
             apiKey: env.CF_AIG_TOKEN,
         });
 
-        // No Google API key needed — AI Gateway handles auth via CF credits
-        const google = createGoogleGenerativeAI();
-
-        cachedModel = aigateway(google(MODEL_ID));
+        const unified = createUnified();
+        cachedModel = aigateway(unified(MODEL_ID));
     }
     return cachedModel;
 }

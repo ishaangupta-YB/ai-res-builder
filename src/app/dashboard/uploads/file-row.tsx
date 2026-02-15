@@ -87,61 +87,79 @@ export function FileRow({ file, onAnalyze }: FileRowProps) {
     const isBusy = isDeleting || isRecreating;
 
     return (
-        <div className="flex items-center gap-4 px-4 py-3">
-            <FileText className="h-8 w-8 shrink-0 text-red-500" />
-            <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">{file.fileName}</p>
-                <p className="text-xs text-muted-foreground">
-                    {formatFileSize(file.fileSize)}
-                    {file.createdAt && ` · ${formatDate(file.createdAt)}`}
-                </p>
+        <div className="group relative flex flex-col gap-4 overflow-hidden rounded-xl border-4 border-black bg-white p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all hover:-translate-y-1 hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:border-white dark:bg-black dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] dark:hover:shadow-[8px_8px_0px_0px_rgba(255,255,255,1)] sm:flex-row sm:items-center">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border-2 border-black bg-red-100 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:border-white dark:bg-red-900/50 dark:shadow-[2px_2px_0px_0px_rgba(255,255,255,1)]">
+                <FileText className="h-6 w-6 text-black dark:text-white" />
             </div>
-            <div className="flex shrink-0 items-center gap-1">
+
+            <div className="min-w-0 flex-1">
+                <p className="truncate font-mono text-lg font-bold uppercase tracking-tight text-foreground">
+                    {file.fileName}
+                </p>
+                <div className="flex items-center gap-2 text-xs font-bold uppercase text-muted-foreground">
+                    <span className="rounded-full bg-black px-2 py-0.5 text-white dark:bg-white dark:text-black">
+                        PDF
+                    </span>
+                    <span>{formatFileSize(file.fileSize)}</span>
+                    <span>•</span>
+                    <span>{formatDate(file.createdAt)}</span>
+                </div>
+            </div>
+
+            <div className="flex shrink-0 items-center gap-2 sm:gap-3">
                 {/* Recreate as editable resume */}
                 <Button
-                    variant="ghost"
-                    size="sm"
+                    variant="outline"
+                    size="icon"
                     onClick={handleRecreate}
                     disabled={isBusy}
-                    title="Recreate as editable resume"
+                    title="Recreate"
+                    className="h-10 w-10 border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all hover:bg-yellow-300 active:translate-y-0.5 active:shadow-none dark:border-white dark:bg-black dark:text-white dark:shadow-[2px_2px_0px_0px_rgba(255,255,255,1)] dark:hover:bg-yellow-600"
                 >
                     {isRecreating ? (
-                        <Spinner className="h-4 w-4" />
+                        <Spinner className="h-5 w-5" />
                     ) : (
-                        <Wand2 className="h-4 w-4" />
+                        <Wand2 className="h-5 w-5" />
                     )}
                 </Button>
 
                 {/* AI Analysis */}
                 <Button
-                    variant="ghost"
-                    size="sm"
+                    variant="outline"
+                    size="icon"
                     onClick={() => onAnalyze(file.id, file.fileName)}
                     disabled={isBusy}
-                    title="AI resume analysis"
+                    title="Analyze"
+                    className="h-10 w-10 border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all hover:bg-blue-300 active:translate-y-0.5 active:shadow-none dark:border-white dark:bg-black dark:text-white dark:shadow-[2px_2px_0px_0px_rgba(255,255,255,1)] dark:hover:bg-blue-600"
                 >
-                    <BarChart3 className="h-4 w-4" />
+                    <BarChart3 className="h-5 w-5" />
                 </Button>
 
                 {/* Download */}
-                <Button variant="ghost" size="sm" asChild disabled={isBusy}>
+                <Button
+                    variant="outline"
+                    size="icon"
+                    asChild
+                    disabled={isBusy}
+                    className="h-10 w-10 border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all hover:bg-green-300 active:translate-y-0.5 active:shadow-none dark:border-white dark:bg-black dark:text-white dark:shadow-[2px_2px_0px_0px_rgba(255,255,255,1)] dark:hover:bg-green-600"
+                >
                     <a href={file.url} download={file.fileName}>
-                        <Download className="h-4 w-4" />
+                        <Download className="h-5 w-5" />
                     </a>
                 </Button>
 
                 {/* Delete */}
                 <Button
-                    variant="ghost"
-                    size="sm"
+                    variant="outline"
+                    size="icon"
                     onClick={handleDelete}
                     disabled={isBusy}
-                    className="text-destructive hover:text-destructive"
+                    className="h-10 w-10 border-2 border-black bg-red-100 text-red-600 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all hover:bg-red-400 hover:text-black active:translate-y-0.5 active:shadow-none dark:border-white dark:bg-red-900/30 dark:text-red-400 dark:shadow-[2px_2px_0px_0px_rgba(255,255,255,1)] dark:hover:bg-red-700 dark:hover:text-white"
                 >
                     {isDeleting ? (
-                        <Spinner className="h-4 w-4" />
+                        <Spinner className="h-5 w-5" />
                     ) : (
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-5 w-5" />
                     )}
                 </Button>
             </div>

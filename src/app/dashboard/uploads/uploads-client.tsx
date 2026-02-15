@@ -28,7 +28,7 @@ export function UploadsClient({ files }: { files: FileWithUrl[] }) {
 
     return (
         <>
-            <div className="divide-y rounded-lg border">
+            <div className="flex flex-col gap-4">
                 {files.map((file) => (
                     <FileRow
                         key={file.id}

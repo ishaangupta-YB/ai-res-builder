@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/collapsible";
 import { Eye, EyeOff, ChevronDown, GripVertical, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { useEffect, useRef, type ReactNode } from "react";
+import { type ReactNode } from "react";
 
 interface SectionWrapperProps {
     title: string;
@@ -44,42 +44,35 @@ export default function SectionWrapper({
     onDragStart,
     draggable = true,
 }: SectionWrapperProps) {
-    // #region agent log
-    const wrapperRef = useRef<HTMLDivElement>(null);
-    useEffect(() => {
-        if (!open) return;
-        const timer = setTimeout(() => {
-            const el = wrapperRef.current;
-            if (!el) return;
-            const outerDiv = el; // the outer border div
-            const collContent = el.querySelector('[data-slot="collapsible-content"]') as HTMLElement|null;
-            const innerDiv = collContent?.firstElementChild as HTMLElement|null;
-            const childContent = innerDiv?.firstElementChild as HTMLElement|null;
-            fetch('http://127.0.0.1:7242/ingest/54096512-0c9c-409a-a718-08f34671d35a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SectionWrapper.tsx:debug',message:`Section "${title}" widths when open`,data:{title,outerDivClientW:outerDiv.clientWidth,outerDivScrollW:outerDiv.scrollWidth,outerDivOverflow:window.getComputedStyle(outerDiv).overflow,collContentClientW:collContent?.clientWidth,collContentScrollW:collContent?.scrollWidth,collContentOverflow:collContent?window.getComputedStyle(collContent).overflow:null,innerDivClientW:innerDiv?.clientWidth,innerDivScrollW:innerDiv?.scrollWidth,childContentClientW:childContent?.clientWidth,childContentScrollW:childContent?.scrollWidth},timestamp:Date.now()})}).catch(()=>{});
-        }, 600);
-        return () => clearTimeout(timer);
-    }, [open, title]);
-    // #endregion
+
 
     return (
         <Collapsible
             open={open}
             onOpenChange={onOpenChange}
-            className="w-full min-w-0"
+            className={cn(
+                "w-full min-w-0 transition-all duration-300 ease-in-out",
+                open ? "mb-4" : "mb-2"
+            )}
         >
             <div
-                ref={wrapperRef}
                 className={cn(
-                    "w-full min-w-0 overflow-hidden rounded-lg border bg-card transition-colors",
-                    !isVisible && "opacity-60",
+                    "group w-full min-w-0 overflow-hidden rounded-xl border bg-card transition-all duration-300 hover:shadow-md",
+                    !isVisible && "opacity-60 grayscale-[0.5]",
+                    open && "ring-1 ring-primary/20 shadow-md border-primary/20"
                 )}
             >
                 {/* Section Header */}
-                <div className="flex min-w-0 items-center gap-1 px-3 py-2.5">
+                <div
+                    className={cn(
+                        "flex min-w-0 items-center gap-1 px-3 py-3 transition-colors",
+                        open ? "bg-accent/5" : "hover:bg-accent/50"
+                    )}
+                >
                     {/* Drag handle -- fires drag via useDragControls in parent */}
                     {draggable && (
                         <div
-                            className="cursor-grab touch-none text-muted-foreground hover:text-foreground"
+                            className="cursor-grab touch-none p-1 text-muted-foreground/50 transition-colors hover:text-foreground active:cursor-grabbing"
                             onPointerDown={onDragStart}
                         >
                             <GripVertical className="h-4 w-4" />
@@ -90,19 +83,33 @@ export default function SectionWrapper({
                     <CollapsibleTrigger asChild>
                         <button
                             type="button"
-                            className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-1 py-1 text-left text-sm font-medium transition-colors hover:bg-accent"
+                            className="flex min-w-0 flex-1 items-center gap-3 rounded-md px-1 py-1 text-left text-sm font-medium transition-colors"
                         >
-                            <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
-                            <span className="truncate">{title}</span>
+                            <div className={cn(
+                                "flex h-8 w-8 shrink-0 items-center justify-center rounded-md border transition-colors",
+                                open
+                                    ? "bg-primary text-primary-foreground border-primary"
+                                    : "bg-background text-muted-foreground border-border group-hover:border-primary/50 group-hover:text-primary"
+                            )}>
+                                <Icon className="h-4 w-4" />
+                            </div>
+
+                            <span className={cn(
+                                "truncate text-sm font-semibold tracking-tight transition-colors",
+                                open ? "text-foreground" : "text-muted-foreground group-hover:text-foreground"
+                            )}>
+                                {title}
+                            </span>
+
                             {count !== undefined && count > 0 && (
-                                <span className="ml-1 rounded-full bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                                <span className="ml-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
                                     {count}
                                 </span>
                             )}
                             <ChevronDown
                                 className={cn(
-                                    "ml-auto h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200",
-                                    open && "rotate-180",
+                                    "ml-auto h-4 w-4 shrink-0 text-muted-foreground/50 transition-transform duration-300",
+                                    open && "rotate-180 text-foreground",
                                 )}
                             />
                         </button>
@@ -113,7 +120,7 @@ export default function SectionWrapper({
                         type="button"
                         variant="ghost"
                         size="icon-xs"
-                        className="shrink-0 text-muted-foreground hover:text-foreground"
+                        className="h-8 w-8 shrink-0 text-muted-foreground hover:bg-background hover:text-foreground"
                         onClick={(e) => {
                             e.stopPropagation();
                             onToggleVisibility();
@@ -121,9 +128,9 @@ export default function SectionWrapper({
                         title={isVisible ? "Hide section" : "Show section"}
                     >
                         {isVisible ? (
-                            <Eye className="h-3.5 w-3.5" />
+                            <Eye className="h-4 w-4" />
                         ) : (
-                            <EyeOff className="h-3.5 w-3.5" />
+                            <EyeOff className="h-4 w-4 opacity-50" />
                         )}
                     </Button>
 
@@ -133,21 +140,21 @@ export default function SectionWrapper({
                             type="button"
                             variant="ghost"
                             size="icon-xs"
-                            className="shrink-0 text-muted-foreground hover:text-destructive"
+                            className="h-8 w-8 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                             onClick={(e) => {
                                 e.stopPropagation();
                                 onRemove();
                             }}
                             title="Remove section"
                         >
-                            <X className="h-3.5 w-3.5" />
+                            <X className="h-4 w-4" />
                         </Button>
                     )}
                 </div>
 
                 {/* Section Content */}
                 <CollapsibleContent className="min-w-0">
-                    <div className="w-full min-w-0 max-w-full overflow-x-hidden border-t px-3 py-3">
+                    <div className="animate-in slide-in-from-top-2 fade-in duration-300 w-full min-w-0 max-w-full overflow-x-hidden border-t px-4 py-4 bg-card/50">
                         {children}
                     </div>
                 </CollapsibleContent>

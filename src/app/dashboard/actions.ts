@@ -17,6 +17,7 @@ import {
     aiResults,
 } from "@/db/schema";
 import { getR2Bucket } from "@/lib/r2";
+import { generatePresignedDownloadUrl } from "@/lib/r2-presign";
 import { requireSession } from "@/lib/auth-server";
 import { resumeSchema, type ResumeValues } from "@/lib/validation";
 import { eq, and } from "drizzle-orm";
@@ -582,10 +583,15 @@ export async function deleteFile(
 // AI Helpers (internal, not exported)
 // ---------------------------------------------------------------------------
 
-async function getPdfBytesFromR2(
+/**
+ * Gets a temporary presigned download URL for a user's PDF file.
+ * Uses the S3-compatible API (not the R2 binding) so it works in
+ * both local dev and production.
+ */
+async function getPdfUrlFromR2(
     userId: string,
     fileId: string,
-): Promise<{ bytes: Uint8Array; fileName: string }> {
+): Promise<{ url: string; fileName: string }> {
     const db = await getDb();
 
     const file = await db.query.userFiles.findFirst({
@@ -600,15 +606,10 @@ async function getPdfBytesFromR2(
         throw new Error("PDF file not found");
     }
 
-    const bucket = await getR2Bucket();
-    const r2Object = await bucket.get(file.r2Key);
-
-    if (!r2Object) {
-        throw new Error("PDF file not found in storage");
-    }
-
-    const arrayBuffer = await r2Object.arrayBuffer();
-    return { bytes: new Uint8Array(arrayBuffer), fileName: file.fileName };
+    // Generate a presigned GET URL (5-minute expiry)
+    // Gemini will fetch the PDF directly from this URL
+    const url = await generatePresignedDownloadUrl(file.r2Key);
+    return { url, fileName: file.fileName };
 }
 
 async function getCachedAiResult(
@@ -696,8 +697,8 @@ export async function recreateResumeFromPdf(
         if (cached) {
             extraction = cached as AiResumeExtraction;
         } else {
-            // 2. Fetch PDF from R2
-            const { bytes, fileName } = await getPdfBytesFromR2(userId, fileId);
+            // 2. Get a temporary presigned URL for the PDF
+            const { url: pdfUrl, fileName } = await getPdfUrlFromR2(userId, fileId);
 
             // 3. Call Gemini via AI Gateway for structured extraction
             const model = await getAiModel();
@@ -706,23 +707,112 @@ export async function recreateResumeFromPdf(
                 output: Output.object({
                     schema: aiResumeExtractionSchema,
                 }),
+                system: `You are a world-class resume data extraction engine built for precision and completeness. You have deep expertise in parsing resumes across every industry, career level, and format — from a fresh graduate's single-page resume to a senior executive's multi-page CV.
+
+Your mission: extract EVERY piece of structured data from the PDF with surgical accuracy. Treat the resume as a source of truth — extract what exists, never infer what doesn't.
+
+## Core Extraction Rules
+
+1. **Completeness over brevity.** Extract ALL sections, ALL entries, ALL bullet points. If a resume has 15 bullet points under a role, extract all 15 — do not summarize or truncate.
+
+2. **Fidelity to source.** Extract text exactly as written. Do not rephrase, paraphrase, improve, or "clean up" the candidate's language. Their exact wording matters for recreating a faithful resume.
+
+3. **Null over fabrication.** If a field is not present in the resume, omit it (return null/undefined). NEVER guess, infer, or fabricate data. Common examples:
+   - No phone number listed → phone: null (don't guess from area codes or other context)
+   - No end date on a role → endDate: null (this means "present/current")
+   - No location listed → location: null (don't infer from company name)
+   - No GPA listed → gpa: null (don't estimate)
+
+## Date Handling
+
+Dates on resumes come in wildly inconsistent formats. Normalize ALL dates to YYYY-MM-DD:
+- "June 2023" or "Jun 2023" → "2023-06-01"
+- "2023" (year only) → "2023-01-01"
+- "Summer 2022" → "2022-06-01"
+- "Q3 2021" → "2021-07-01"
+- "Present", "Current", "Now", or "Ongoing" → leave endDate empty/null
+- "Expected May 2025" or "Expected 2025" → use the expected date
+- If a date range says "2021 - 2023" with no months → startDate: "2021-01-01", endDate: "2023-01-01"
+
+## Layout & Format Handling
+
+Resumes come in many layouts. Handle each correctly:
+- **Multi-column layouts:** Read ALL columns. Side columns often contain contact info, skills, languages, or certifications.
+- **Two-column designs:** Left column might have skills/contact, right column has experience. Extract from both.
+- **Tables/grids:** These might contain skills matrices or structured education data. Extract the cell content.
+- **Headers/footers:** May contain contact info, page numbers, or links. Don't miss them.
+- **Icons/symbols:** Resume may use icons (📧, 📱, 🔗) before contact info. Extract the data after the icon.
+
+## Work Experience Nuances
+
+- **Multiple roles at same company:** Some candidates list multiple promotions/roles under one company. Extract each as a separate workExperience entry with the company name repeated.
+- **Titles with slashes:** "Software Engineer / Tech Lead" → position: "Software Engineer / Tech Lead" (keep as-is, don't split)
+- **Freelance/contract work:** Extract like any other role. Company might be "Self-employed", "Freelance", or client names.
+- **Bullet points vs. paragraphs:** If descriptions use bullet points (•, -, *, ▪), join them with "\n". If it's a paragraph, keep as a single string.
+- **Subheadings:** Some resumes have a secondary line under the job title (e.g., department name, team name, or a brief tagline). Capture this in the subheading field.
+
+## Skills Extraction
+
+- **Flatten grouped skills.** If the resume says "Programming: Python, Java, C++" → extract as ["Python", "Java", "C++"]
+- **Separate categories.** "Frontend: React, Vue" and "Backend: Node.js, Django" → ["React", "Vue", "Node.js", "Django"]
+- **Preserve proficiency if mentioned inline.** Don't extract "Advanced" or "Beginner" as skills — they are proficiency levels for language entries.
+- **Tools and platforms are skills too.** Git, Docker, AWS, Figma, Jira — these are individual skills.
+- **Soft skills only if explicitly listed.** Leadership, Communication, etc. — only extract if the resume explicitly lists them in a skills section.
+
+## Education Nuances
+
+- **Honors/Cum Laude:** Include in the description field, not the degree field.
+- **Minor/Concentration:** Include in fieldOfStudy (e.g., "Computer Science, Minor in Mathematics")
+- **Coursework listings:** If relevant coursework is listed, include in description.
+- **Study abroad:** If listed as a separate education entry, extract it as one.
+
+## Contact & Personal Info
+
+- **Name parsing:** First word(s) = firstName, last word = lastName. For names like "Jean-Pierre Dupont", firstName: "Jean-Pierre", lastName: "Dupont". For "Mary Jane Watson", firstName: "Mary Jane", lastName: "Watson" (middle names go with first name).
+- **LinkedIn URL normalization:** Extract the full URL as written (don't try to normalize linkedin.com/in/xxx formats).
+- **Multiple websites:** If both a portfolio and GitHub are listed, pick the primary portfolio for website. GitHub can be noted in projects.
+- **Location:** Extract city and country separately. "New York, NY" → city: "New York", country: "NY". "London, UK" → city: "London", country: "UK".
+
+## Ordering
+
+- Preserve the resume's original ordering within each section (typically most recent first for experience/education).`,
                 messages: [
                     {
                         role: "user",
                         content: [
                             {
                                 type: "file",
-                                data: bytes,
+                                data: new URL(pdfUrl),
                                 mediaType: "application/pdf",
                             },
                             {
                                 type: "text",
-                                text: `Extract all structured resume data from this PDF file named "${fileName}".
-Extract every section you can find: personal information, summary/objective, work experience, education, projects, skills, awards, publications, certificates, languages, courses, references, and interests.
-For dates, use YYYY-MM-DD format. If only a year is given, use YYYY-01-01. If month and year, use YYYY-MM-01.
-For descriptions with bullet points, preserve them as newline-separated items.
-Extract skills as individual items, not grouped categories.
-Be thorough — do not skip any content from the resume.`,
+                                text: `Extract all structured data from this resume PDF ("${fileName}").
+
+Here is an example of the expected output format for a work experience entry:
+{
+  "position": "Senior Software Engineer",
+  "company": "Acme Corp",
+  "location": "San Francisco, CA",
+  "startDate": "2021-03-01",
+  "endDate": "2023-11-01",
+  "description": "Led migration of monolith to microservices architecture, reducing deployment time by 60%\nDesigned and implemented real-time event processing pipeline handling 50K events/sec\nReduced API p95 latency from 800ms to 120ms through Redis caching and query optimization\nMentored 3 junior engineers through weekly 1:1s and code reviews",
+  "subheading": "Platform Engineering Team"
+}
+
+And for an education entry:
+{
+  "degree": "Bachelor of Science",
+  "school": "Stanford University",
+  "fieldOfStudy": "Computer Science",
+  "gpa": "3.8/4.0",
+  "location": "Stanford, CA",
+  "startDate": "2017-09-01",
+  "endDate": "2021-06-01",
+  "description": "Dean's List (6 semesters)\nRelevant Coursework: Distributed Systems, Machine Learning, Database Systems"
+}
+
+Extract EVERY section you can find: personal info, summary/objective, work experience, education, projects, skills, awards, publications, certificates, languages, courses, references, and interests. Do not skip any content — even small sections like hobbies or volunteer work should be captured in the appropriate field.`,
                             },
                         ],
                     },
@@ -750,6 +840,7 @@ Be thorough — do not skip any content from the resume.`,
         }
 
         // 5. Transform AI extraction to ResumeValues shape
+        //    Null-coalesce every field — never let undefined slip into the DB
         const nameParts = [extraction.firstName, extraction.lastName].filter(
             Boolean,
         );
@@ -758,17 +849,17 @@ Be thorough — do not skip any content from the resume.`,
                 nameParts.length > 0
                     ? `${nameParts.join(" ")}'s Resume`
                     : "Imported Resume",
-            firstName: extraction.firstName,
-            lastName: extraction.lastName,
-            jobTitle: extraction.jobTitle,
-            email: extraction.email,
-            phone: extraction.phone,
-            city: extraction.city,
-            country: extraction.country,
-            linkedin: extraction.linkedin,
-            website: extraction.website,
-            summary: extraction.summary,
-            skills: extraction.skills,
+            firstName: extraction.firstName ?? undefined,
+            lastName: extraction.lastName ?? undefined,
+            jobTitle: extraction.jobTitle ?? undefined,
+            email: extraction.email ?? undefined,
+            phone: extraction.phone ?? undefined,
+            city: extraction.city ?? undefined,
+            country: extraction.country ?? undefined,
+            linkedin: extraction.linkedin ?? undefined,
+            website: extraction.website ?? undefined,
+            summary: extraction.summary ?? undefined,
+            skills: extraction.skills ?? [],
 
             // Defaults for visual settings
             colorHex: "#000000",
@@ -781,52 +872,52 @@ Be thorough — do not skip any content from the resume.`,
             sectionOrder: buildSectionOrder(extraction),
             sectionVisibility: buildSectionVisibility(extraction),
 
-            workExperiences: extraction.workExperiences?.map((exp, idx) => ({
+            workExperiences: (extraction.workExperiences ?? []).map((exp, idx) => ({
                 ...exp,
                 visible: true,
                 displayOrder: idx,
             })),
-            educations: extraction.educations?.map((edu, idx) => ({
+            educations: (extraction.educations ?? []).map((edu, idx) => ({
                 ...edu,
                 visible: true,
                 displayOrder: idx,
             })),
-            projects: extraction.projects?.map((p, idx) => ({
+            projects: (extraction.projects ?? []).map((p, idx) => ({
                 ...p,
                 visible: true,
                 displayOrder: idx,
             })),
-            awards: extraction.awards?.map((a, idx) => ({
+            awards: (extraction.awards ?? []).map((a, idx) => ({
                 ...a,
                 visible: true,
                 displayOrder: idx,
             })),
-            publications: extraction.publications?.map((p, idx) => ({
+            publications: (extraction.publications ?? []).map((p, idx) => ({
                 ...p,
                 visible: true,
                 displayOrder: idx,
             })),
-            certificates: extraction.certificates?.map((c, idx) => ({
+            certificates: (extraction.certificates ?? []).map((c, idx) => ({
                 ...c,
                 visible: true,
                 displayOrder: idx,
             })),
-            languages: extraction.languages?.map((l, idx) => ({
+            languages: (extraction.languages ?? []).map((l, idx) => ({
                 ...l,
                 visible: true,
                 displayOrder: idx,
             })),
-            courses: extraction.courses?.map((c, idx) => ({
+            courses: (extraction.courses ?? []).map((c, idx) => ({
                 ...c,
                 visible: true,
                 displayOrder: idx,
             })),
-            references: extraction.references?.map((r, idx) => ({
+            references: (extraction.references ?? []).map((r, idx) => ({
                 ...r,
                 visible: true,
                 displayOrder: idx,
             })),
-            interests: extraction.interests?.map((i, idx) => ({
+            interests: (extraction.interests ?? []).map((i, idx) => ({
                 ...i,
                 visible: true,
                 displayOrder: idx,
@@ -1052,8 +1143,8 @@ export async function analyzeResumePdf(
             }
         }
 
-        // 2. Fetch PDF from R2
-        const { bytes, fileName } = await getPdfBytesFromR2(userId, fileId);
+        // 2. Get a temporary presigned URL for the PDF
+        const { url: pdfUrl, fileName } = await getPdfUrlFromR2(userId, fileId);
 
         // 3. Call Gemini for analysis via generateText + Output.object
         const model = await getAiModel();
@@ -1062,31 +1153,111 @@ export async function analyzeResumePdf(
             output: Output.object({
                 schema: aiResumeAnalysisSchema,
             }),
+            system: `You are a world-class resume reviewer who combines the perspectives of three distinct experts:
+
+1. **The Recruiter (6-Second Scan):** You evaluate first impressions. Can you identify the candidate's target role, experience level, and key qualifications within 6 seconds? Is the visual hierarchy effective? Does the resume pass the "squint test" — when you squint, can you still see clear section breaks and a logical flow?
+
+2. **The Hiring Manager (Deep Read):** You evaluate substance. Are achievements specific, quantified, and relevant? Does the candidate demonstrate impact, not just activity? Can you understand what this person actually DID, not just what they were responsible for? Are there red flags like unexplained gaps, job-hopping without progression, or vague buzzwords without substance?
+
+3. **The ATS Parser (Machine Read):** You evaluate technical compatibility. Will automated screening systems correctly parse every section? Are there formatting elements (tables, columns, text boxes, headers/footers, images) that would cause parsing failures? Are standard section headers used? Would keyword matching work effectively against common job descriptions in this field?
+
+## Scoring Philosophy
+
+Your scores must be honest, calibrated, and defensible:
+
+- **0-20:** Fundamentally broken — Missing critical sections, incoherent structure, or appears to be a non-resume document. Almost never given.
+- **21-40:** Significantly below standard — Major gaps (no work experience section, no contact info), severely poor formatting, or content that would immediately disqualify in most applications.
+- **41-55:** Below average — Functional but with substantial issues. Common for first-draft resumes: duty-based descriptions without achievements, inconsistent formatting, missing quantification.
+- **56-70:** Average — Meets basic standards but lacks polish. Has some quantified achievements but inconsistent. Formatting is decent but not optimized. This is where most resumes land.
+- **71-82:** Good — Well-structured, mostly quantified achievements, clean formatting, clear career narrative. Minor improvements possible but wouldn't embarrass the candidate.
+- **83-92:** Excellent — Strong achievements with clear metrics, polished formatting, compelling narrative, optimized for ATS. Ready for top-tier applications with perhaps 1-2 small tweaks.
+- **93-100:** Near-perfect — Reserve this for resumes that are genuinely exceptional. This means every bullet point has quantified impact, the career story is compelling and cohesive, formatting is immaculate, and you'd struggle to find meaningful improvements. Extremely rare.
+
+**Calibration anchor:** A typical software engineer resume with 3 years of experience, decent formatting, a mix of quantified and non-quantified bullets, and standard section headers should score around 55-65. Adjust from there.
+
+## Feedback Quality Standards
+
+Your feedback must be:
+
+- **Specific, not generic.** BAD: "Add more metrics." GOOD: "Your second bullet at TechCo says 'improved system performance' — quantify this: by what percentage? measured how? what was the baseline?"
+- **Actionable, not observational.** BAD: "The skills section could be better." GOOD: "Group your 18 skills into 3-4 categories (Languages, Frameworks, Tools, Cloud) to improve scannability. Consider removing 'Microsoft Office' — it's assumed for professional roles and uses valuable space."
+- **Prioritized.** Distinguish between critical issues that would hurt the candidate's chances vs. nice-to-have polish improvements.
+- **Context-aware.** A fresh graduate's resume should be evaluated differently than a staff engineer's. Don't penalize a student for lacking 10 years of experience. Don't penalize a senior executive for having a 2-page resume.
+
+## What to Look For (Deep Analysis Lenses)
+
+### Content Quality
+- Are bullet points achievement-oriented ("Increased revenue by 30%") vs. duty-oriented ("Responsible for managing revenue")?
+- Does the candidate use the PAR/STAR format (Problem → Action → Result)?
+- Are there specific metrics, numbers, dollar amounts, percentages, team sizes?
+- Is there evidence of career progression (growing responsibilities, promotions)?
+- Do descriptions use strong action verbs ("Architected", "Spearheaded", "Optimized") vs. weak ones ("Helped", "Assisted", "Worked on")?
+
+### Professional Narrative
+- Does the summary/objective clearly state what the candidate does and what value they bring?
+- Is there a coherent career story — can you see the thread connecting their experiences?
+- Are there career gaps? If so, are they explained?
+- Does the resume show job-hopping (multiple roles under 1 year)? Is there a pattern of growth despite job changes?
+
+### Formatting & Design
+- Is there a clear visual hierarchy (name → role → sections)?
+- Is whitespace used effectively or is the resume either too cramped or too sparse?
+- Is typography consistent (same font sizes for same-level headings, consistent date formats)?
+- Are margins reasonable (0.5-1 inch)?
+- Is the resume an appropriate length for the candidate's experience level? (1 page for <5 years, 2 pages acceptable for >5 years)
+- Are there orphan lines or awkward page breaks?
+
+### ATS Compatibility
+- Is the file a text-based PDF (not a scanned image)?
+- Are section headers standard ("Work Experience" not "Where I've Made My Mark")?
+- Is contact info in the document body (not in the header/footer, which many ATS systems skip)?
+- Are there fancy design elements (tables, multi-column layouts, icons, charts) that could confuse parsers?
+- Does it avoid text boxes, which are often ignored by ATS?
+
+### Red Flags to Call Out
+- Unexplained gaps > 6 months
+- Inconsistencies (dates overlapping, title inflation)
+- Overuse of buzzwords without substance ("synergy", "leverage", "paradigm shift")
+- Wall-of-text descriptions vs. crisp bullets
+- Missing contact information
+- Unprofessional email addresses
+- Including irrelevant personal information (age, photo, marital status — depends on region)`,
             messages: [
                 {
                     role: "user",
                     content: [
                         {
                             type: "file",
-                            data: bytes,
+                            data: new URL(pdfUrl),
                             mediaType: "application/pdf",
                         },
                         {
                             type: "text",
-                            text: `Analyze this resume PDF named "${fileName}" for quality, effectiveness, and ATS compatibility.
+                            text: `Perform a comprehensive, no-holds-barred analysis of this resume ("${fileName}").
 
-Evaluate these aspects:
-1. **Summary/Objective** — Is it compelling and tailored?
-2. **Work Experience** — Are achievements quantified? Are action verbs used? Is it results-oriented?
-3. **Education** — Is it complete and relevant?
-4. **Skills** — Are they relevant, well-organized, and include both technical and soft skills?
-5. **Projects** — Are they well-described with impact?
-6. **Formatting** — Is the layout clean, consistent, and professional?
-7. **ATS Compatibility** — Will it parse correctly in applicant tracking systems?
-8. **Overall Impact** — Does it tell a compelling career story?
+For each section that exists in the resume, provide:
+1. A score from 0-100 (calibrated to the scoring guidelines)
+2. What's working well (specific strengths with examples from the resume)
+3. What needs improvement (specific, actionable suggestions — not vague platitudes)
 
-Be specific and actionable in your feedback. Reference actual content from the resume where possible.
-Score fairly — most resumes should fall in the 40-80 range. Only exceptional resumes score above 85.`,
+Required evaluation sections:
+- **Summary / Objective** — Value proposition clarity, tailoring, and hook strength
+- **Work Experience** — Achievement quantification, action verb strength, impact demonstration, PAR/STAR format usage
+- **Education** — Completeness, relevance, proper formatting
+- **Skills** — Relevance, organization, technical vs. soft skill balance, keyword optimization
+- **Projects** — Impact clarity, technology stack, outcomes
+- **Formatting & Layout** — Visual hierarchy, consistency, whitespace, typography, page length appropriateness
+- **Overall Impact** — Career narrative coherence, differentiation, and "Would I interview this person?" gut check
+
+Then evaluate ATS compatibility separately:
+- Identify specific elements that would cause parsing failures
+- Check for standard vs. creative section headers
+- Evaluate keyword density for the candidate's apparent target role
+
+Finally provide:
+- **Top strengths:** 3-5 specific things this resume does well (cite actual content)
+- **Critical improvements:** 3-5 highest-impact changes ranked by importance (most impactful first)
+- **Overall summary:** 2-3 sentences capturing your honest assessment — imagine you're giving this feedback face-to-face to the candidate`,
                         },
                     ],
                 },

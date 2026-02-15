@@ -32,7 +32,7 @@ export default function Footer({
     lastSaveError,
 }: FooterProps) {
     return (
-        <footer className="w-full border-t bg-muted/40 px-3 py-3">
+        <footer className="w-full border-t border-border/40 bg-background/80 px-3 py-3 backdrop-blur-md supports-[backdrop-filter]:bg-background/60">
             <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
                 {/* Mobile preview toggle */}
                 <TooltipProvider>

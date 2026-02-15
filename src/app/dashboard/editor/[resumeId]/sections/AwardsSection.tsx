@@ -10,6 +10,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { Plus, Trash2, Eye, EyeOff, Pencil, Check, X, Copy } from "lucide-react";
 import type { EditorFormProps } from "@/lib/types";
 import type { ResumeValues } from "@/lib/validation";
+import AiEnhanceButton from "./AiEnhanceButton";
 
 type AwardEntry = NonNullable<ResumeValues["awards"]>[number];
 
@@ -211,7 +212,23 @@ export default function AwardsSection({
                         />
                     </div>
                     <div className="space-y-1.5">
-                        <Label htmlFor="award-desc">Description</Label>
+                        <div className="flex items-center gap-1">
+                            <Label htmlFor="award-desc">Description</Label>
+                            <AiEnhanceButton
+                                fieldType="award"
+                                currentText={localEntry.description ?? ""}
+                                context={{
+                                    title: localEntry.title ?? "",
+                                    issuer: localEntry.issuer ?? "",
+                                }}
+                                onEnhanced={(text) =>
+                                    setLocalEntry((p) => ({
+                                        ...p!,
+                                        description: text || undefined,
+                                    }))
+                                }
+                            />
+                        </div>
                         <Textarea
                             id="award-desc"
                             value={localEntry.description ?? ""}

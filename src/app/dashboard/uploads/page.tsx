@@ -25,31 +25,33 @@ export default async function UploadsPage() {
     }));
 
     return (
-        <div className="container mx-auto px-4 py-8">
-            <div className="mb-8">
-                <h1 className="text-3xl font-bold">Uploaded Resumes</h1>
-                <p className="mt-1 text-muted-foreground">
-                    Upload your existing resumes to recreate or analyze them
-                    with AI
-                </p>
+        <div className="container mx-auto max-w-5xl px-4 py-12">
+
+            <div className="rounded-xl border-4 border-black bg-white p-1 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:border-white dark:bg-black dark:shadow-[8px_8px_0px_0px_rgba(255,255,255,1)]">
+                <div className="rounded-lg border-2 border-dashed border-black/20 p-8 dark:border-white/20">
+                    <UploadSection />
+                </div>
             </div>
 
-            <UploadSection />
-
             {filesWithUrls.length > 0 ? (
-                <div className="mt-8 space-y-3">
-                    <h2 className="text-lg font-semibold">Your Files</h2>
+                <div className="mt-12 space-y-6">
+                    <div className="flex items-center gap-3">
+                        <div className="h-4 w-4 bg-black dark:bg-white" />
+                        <h2 className="text-2xl font-black uppercase tracking-tight">
+                            Your Resumes
+                        </h2>
+                    </div>
                     <UploadsClient files={filesWithUrls} />
                 </div>
             ) : (
-                <div className="mt-12 flex flex-col items-center justify-center rounded-lg border-2 border-dashed py-16">
-                    <div className="rounded-full bg-muted p-4">
-                        <FileUp className="h-8 w-8 text-muted-foreground" />
+                <div className="mt-12 flex flex-col items-center justify-center rounded-xl border-4 border-black bg-blue-100 py-16 text-center shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:border-white dark:bg-blue-900 dark:shadow-[8px_8px_0px_0px_rgba(255,255,255,1)]">
+                    <div className="mb-6 rounded-none border-2 border-black bg-white p-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:border-white dark:bg-black dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)]">
+                        <FileUp className="h-12 w-12 text-black dark:text-white" />
                     </div>
-                    <h2 className="mt-4 text-xl font-semibold">
+                    <h2 className="text-3xl font-black uppercase">
                         No uploads yet
                     </h2>
-                    <p className="mt-1 text-sm text-muted-foreground">
+                    <p className="mt-2 text-lg font-medium text-muted-foreground">
                         Upload a PDF resume to get started
                     </p>
                 </div>

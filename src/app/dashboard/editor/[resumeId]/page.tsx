@@ -47,14 +47,16 @@ export default async function EditorPage({ params }: EditorPageProps) {
     return (
         <Suspense
             fallback={
-                <div className="flex grow items-center justify-center">
+                <div className="flex h-[calc(100dvh-4rem)] items-center justify-center overflow-hidden">
                     <div className="text-muted-foreground">
                         Loading editor...
                     </div>
                 </div>
             }
         >
-            <ResumeEditor resumeToEdit={resumeToEdit} />
+            <div className="h-[calc(100dvh-4rem)] w-full overflow-hidden">
+                <ResumeEditor resumeToEdit={resumeToEdit} />
+            </div>
         </Suspense>
     );
 }

@@ -137,36 +137,42 @@ export function UploadSection() {
             }}
             onDragLeave={() => setDragOver(false)}
             onDrop={handleDrop}
-            className={`flex flex-col items-center gap-4 rounded-lg border-2 border-dashed p-8 transition-colors ${dragOver
-                ? "border-primary bg-primary/5"
-                : "border-muted-foreground/25"
-                }`}
+            className={`group relative flex cursor-pointer flex-col items-center justify-center gap-6 overflow-hidden rounded-xl border-4 border-dashed p-12 transition-all duration-300 ease-in-out hover:border-black hover:bg-yellow-50 hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:hover:border-white dark:hover:bg-yellow-900/20 dark:hover:shadow-[8px_8px_0px_0px_rgba(255,255,255,1)] ${
+                dragOver
+                    ? "scale-[1.02] border-black bg-yellow-100 shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] dark:border-white dark:bg-yellow-900/30 dark:shadow-[12px_12px_0px_0px_rgba(255,255,255,1)]"
+                    : "border-muted-foreground/30 bg-muted/20 hover:scale-[1.01]"
+            }`}
+            onClick={() => inputRef.current?.click()}
         >
             {isUploading ? (
-                <div className="flex items-center gap-3">
-                    <Spinner className="h-5 w-5" />
-                    <span className="text-sm text-muted-foreground">
-                        {uploadStep || "Uploading..."}
+                <div className="flex flex-col items-center gap-6">
+                    <div className="relative h-20 w-20 animate-spin rounded-full border-8 border-muted-foreground/20 border-t-black dark:border-t-white" />
+                    <span className="bg-black px-4 py-2 font-mono text-lg font-bold text-white shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] dark:bg-white dark:text-black">
+                        {uploadStep || "UPLOADING..."}
                     </span>
                 </div>
             ) : (
                 <>
-                    <Upload className="h-8 w-8 text-muted-foreground" />
+                    <div className="rounded-full border-4 border-black bg-white p-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-transform group-hover:rotate-12 dark:border-white dark:bg-black dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)]">
+                        <Upload className="h-10 w-10 text-black dark:text-white" />
+                    </div>
                     <div className="text-center">
-                        <p className="text-sm font-medium">
-                            Drag and drop a PDF here, or click to browse
+                        <p className="font-mono text-2xl font-black uppercase tracking-tight text-foreground">
+                            Drop PDF here
                         </p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                            PDF files up to 10MB
+                        <p className="mt-2 font-medium text-muted-foreground">
+                            or click to browse (max 10MB)
                         </p>
                     </div>
                     <Button
                         type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => inputRef.current?.click()}
+                        className="border-2 border-black bg-black text-lg font-bold text-white shadow-[4px_4px_0px_0px_rgba(0,0,0,0.5)] transition-all hover:-translate-y-1 hover:bg-black hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,0.5)] active:translate-y-0 active:shadow-none dark:border-white dark:bg-white dark:text-black dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.5)] dark:hover:bg-white dark:hover:shadow-[6px_6px_0px_0px_rgba(255,255,255,0.5)]"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            inputRef.current?.click();
+                        }}
                     >
-                        Browse Files
+                        SELECT FILE
                     </Button>
                 </>
             )}

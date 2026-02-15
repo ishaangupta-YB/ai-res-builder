@@ -10,6 +10,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { Plus, Trash2, Eye, EyeOff, Pencil, Check, X, Copy } from "lucide-react";
 import type { EditorFormProps } from "@/lib/types";
 import type { ResumeValues } from "@/lib/validation";
+import AiEnhanceButton from "./AiEnhanceButton";
 
 type EducationEntry = NonNullable<ResumeValues["educations"]>[number];
 
@@ -282,7 +283,24 @@ export default function EducationSection({
                         </div>
                     </div>
                     <div className="space-y-1.5">
-                        <Label htmlFor="edu-desc">Description</Label>
+                        <div className="flex items-center gap-1">
+                            <Label htmlFor="edu-desc">Description</Label>
+                            <AiEnhanceButton
+                                fieldType="education"
+                                currentText={localEntry.description ?? ""}
+                                context={{
+                                    degree: localEntry.degree ?? "",
+                                    school: localEntry.school ?? "",
+                                    fieldOfStudy: localEntry.fieldOfStudy ?? "",
+                                }}
+                                onEnhanced={(text) =>
+                                    setLocalEntry((p) => ({
+                                        ...p!,
+                                        description: text || undefined,
+                                    }))
+                                }
+                            />
+                        </div>
                         <Textarea
                             id="edu-desc"
                             value={localEntry.description ?? ""}

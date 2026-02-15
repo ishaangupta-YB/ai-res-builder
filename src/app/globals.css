@@ -211,18 +211,14 @@
 	}
 }
 
-@page {
-  size: A4;
-  margin: 0.6cm;
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
 }
 
 @media print {
   body {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
-  }
-
-  #resumePrintContent {
-    zoom: 1 !important;
   }
 }

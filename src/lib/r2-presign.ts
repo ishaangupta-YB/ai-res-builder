@@ -90,4 +90,90 @@ export async function generatePresignedUploadUrl(
     return signed.url;
 }
 
+/**
+ * Generates a presigned GET URL for reading an object from R2.
+ *
+ * Used to give the AI model a temporary, time-limited URL to fetch
+ * a PDF directly. The URL is cryptographically signed and expires
+ * after the specified duration.
+ *
+ * @param key       - The R2 object key (e.g. "{userId}/{fileId}.pdf")
+ * @param expiresIn - URL validity in seconds (default 300 = 5 minutes)
+ * @returns The signed GET URL string
+ */
+export async function generatePresignedDownloadUrl(
+    key: string,
+    expiresIn: number = 300,
+): Promise<string> {
+    const creds = await getR2Credentials();
+
+    const client = new AwsClient({
+        accessKeyId: creds.accessKeyId,
+        secretAccessKey: creds.secretAccessKey,
+    });
+
+    const url = new URL(
+        `https://${R2_BUCKET_NAME}.${creds.accountId}.r2.cloudflarestorage.com/${key}`,
+    );
+
+    url.searchParams.set("X-Amz-Expires", String(expiresIn));
+
+    const signed = await client.sign(
+        new Request(url, { method: "GET" }),
+        { aws: { signQuery: true } },
+    );
+
+    return signed.url;
+}
+
+/**
+ * Checks if an object exists in R2 using the S3-compatible API.
+ * This uses the same endpoint as presigned uploads, so it works in
+ * both local dev and production (unlike the R2 bucket binding which
+ * is locally emulated).
+ *
+ * @param key - The R2 object key
+ * @returns Object metadata if found, or null
+ */
+export async function headR2Object(
+    key: string,
+): Promise<{ size: number; etag: string | null } | null> {
+    const creds = await getR2Credentials();
+
+    const client = new AwsClient({
+        accessKeyId: creds.accessKeyId,
+        secretAccessKey: creds.secretAccessKey,
+    });
+
+    const url = new URL(
+        `https://${R2_BUCKET_NAME}.${creds.accountId}.r2.cloudflarestorage.com/${key}`,
+    );
+
+    try {
+        const signed = await client.sign(
+            new Request(url, { method: "HEAD" }),
+            { aws: { signQuery: true } },
+        );
+
+        const res = await fetch(signed);
+
+        if (res.status === 404 || res.status === 403) {
+            return null;
+        }
+
+        if (!res.ok) {
+            console.error(`[headR2Object] Unexpected status ${res.status} for key: ${key}`);
+            return null;
+        }
+
+        return {
+            size: Number(res.headers.get("content-length") ?? 0),
+            etag: res.headers.get("etag"),
+        };
+    } catch (err) {
+        console.error("[headR2Object] Error:", err);
+        return null;
+    }
+}
+
 export { R2_BUCKET_NAME };

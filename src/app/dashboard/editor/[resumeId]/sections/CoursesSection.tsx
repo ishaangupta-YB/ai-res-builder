@@ -10,6 +10,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { Plus, Trash2, Eye, EyeOff, Pencil, Check, X, GripVertical, Copy } from "lucide-react";
 import type { EditorFormProps } from "@/lib/types";
 import type { ResumeValues } from "@/lib/validation";
+import AiEnhanceButton from "./AiEnhanceButton";
 
 type CourseItem = NonNullable<ResumeValues["courses"]>[number];
 
@@ -183,7 +184,20 @@ export default function CoursesSection({
                         />
                     </div>
                     <div className="space-y-2">
-                        <Label>Description</Label>
+                        <div className="flex items-center gap-1">
+                            <Label>Description</Label>
+                            <AiEnhanceButton
+                                fieldType="course"
+                                currentText={editCopy.description ?? ""}
+                                context={{
+                                    name: editCopy.name ?? "",
+                                    institution: editCopy.institution ?? "",
+                                }}
+                                onEnhanced={(text) =>
+                                    setEditCopy((c) => c && { ...c, description: text })
+                                }
+                            />
+                        </div>
                         <Textarea
                             value={editCopy.description ?? ""}
                             onChange={(e) => setEditCopy((c) => c && { ...c, description: e.target.value })}

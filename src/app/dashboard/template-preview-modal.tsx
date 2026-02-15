@@ -10,14 +10,15 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Sparkles, X } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import ResumeTemplate from "./editor/[resumeId]/ResumeTemplate";
 import {
+    CONTENT_WIDTH,
     PAGE_WIDTH,
     PAGE_PADDING_X,
     PAGE_PADDING_Y,
-    FONT_FAMILIES,
-} from "./editor/[resumeId]/ResumePreviewSection";
+    getPreviewFontFamilyCss,
+} from "./editor/[resumeId]/previewConfig";
 import type { SampleTemplate } from "./sample-templates";
 import { createResumeFromTemplate } from "./actions";
 
@@ -49,8 +50,9 @@ export function TemplatePreviewModal({
 
     if (!template) return null;
 
-    const fontFamilyCss = FONT_FAMILIES[0].css; // default serif
+    const fontFamilyCss = getPreviewFontFamilyCss(template.data.fontFamily);
     const fontScale = (template.data.fontSize ?? 10) / 10;
+    const effectiveContentWidth = CONTENT_WIDTH / fontScale;
 
     // Calculate scale to fit. PAGE_WIDTH is 680. 
     // We want some padding around it (e.g. 24px each side = 48px).
@@ -109,11 +111,13 @@ export function TemplatePreviewModal({
                                         padding: `${PAGE_PADDING_Y}px ${PAGE_PADDING_X}px`,
                                     }}
                                 >
-                                    <div style={{ zoom: fontScale }}>
-                                        <ResumeTemplate
-                                            resumeData={template.data}
-                                            fontFamily={fontFamilyCss}
-                                        />
+                                    <div style={{ width: effectiveContentWidth }}>
+                                        <div style={{ zoom: fontScale }}>
+                                            <ResumeTemplate
+                                                resumeData={template.data}
+                                                fontFamily={fontFamilyCss}
+                                            />
+                                        </div>
                                     </div>
                                 </div>
                             </div>

@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Reorder, useDragControls } from "framer-motion";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { motion, Reorder, useDragControls } from "framer-motion";
 import useUnloadWarning from "@/hooks/useUnloadWarning";
 import { cn, mapToResumeValues } from "@/lib/utils";
 import type { ResumeValues } from "@/lib/validation";
@@ -10,17 +10,17 @@ import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 
 import Footer from "./Footer";
-import ResumePreviewSection, {
-    FONT_SIZE_DEFAULT,
-    type PreviewSettings,
-    type PreviewFontFamily,
-} from "./ResumePreviewSection";
+import ResumePreviewSection from "./ResumePreviewSection";
 import useAutoSaveResume from "./useAutoSaveResume";
 import {
-    ALL_SECTIONS,
     DEFAULT_SECTION_ORDER,
     getSectionMeta,
 } from "./sectionConfig";
+import {
+    FONT_SIZE_DEFAULT,
+    type PreviewFontFamily,
+    type PreviewSettings,
+} from "./previewConfig";
 import SectionWrapper from "./sections/SectionWrapper";
 import AddContentModal from "./AddContentModal";
 
@@ -162,38 +162,32 @@ export default function ResumeEditor({ resumeToEdit }: ResumeEditorProps) {
 
     // Track which sections are expanded (by key)
     const [openSections, setOpenSections] = useState<Set<string>>(
-        new Set(["personal-info"]),
+        new Set(),
     );
 
-    // #region agent log
-    const leftPanelRef = useRef<HTMLDivElement>(null);
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            const panel = leftPanelRef.current;
-            if (!panel) return;
-            const panelRect = panel.getBoundingClientRect();
-            const scrollDiv = panel.firstElementChild as HTMLElement | null;
-            const scrollDivStyle = scrollDiv ? window.getComputedStyle(scrollDiv) : null;
-            const contentDiv = scrollDiv?.firstElementChild as HTMLElement | null;
-            const collapsibleContents = panel.querySelectorAll('[data-slot="collapsible-content"]');
-            const contentWidths: Record<string, number> = {};
-            collapsibleContents.forEach((el, i) => {
-                const state = el.getAttribute('data-state');
-                if (state === 'open') {
-                    contentWidths[`collapsible-${i}-scrollWidth`] = (el as HTMLElement).scrollWidth;
-                    contentWidths[`collapsible-${i}-clientWidth`] = (el as HTMLElement).clientWidth;
-                }
-            });
-            fetch('http://127.0.0.1:7242/ingest/54096512-0c9c-409a-a718-08f34671d35a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ResumeEditor.tsx:debug',message:'Post-fix panel measurements',data:{runId:'post-fix',openSections: Array.from(openSections),panelClientW: panelRect.width,panelScrollW: panel.scrollWidth,scrollDivClientW: scrollDiv?.clientWidth,scrollDivScrollW: scrollDiv?.scrollWidth,scrollDivOverflowX: scrollDivStyle?.overflowX,contentDivClientW: contentDiv?.clientWidth,contentDivScrollW: contentDiv?.scrollWidth,contentWidths},timestamp:Date.now()})}).catch(()=>{});
-        }, 500);
-        return () => clearTimeout(timer);
-    }, [openSections]);
-    // #endregion
+
+
 
     const { isSaving, hasUnsavedChanges, lastSaveError } =
         useAutoSaveResume(resumeData);
 
     useUnloadWarning(hasUnsavedChanges);
+
+    useEffect(() => {
+        const previousBodyOverflow = document.body.style.overflow;
+        const previousBodyOverscrollY = document.body.style.overscrollBehaviorY;
+        const previousHtmlOverflow = document.documentElement.style.overflow;
+
+        document.body.style.overflow = "hidden";
+        document.body.style.overscrollBehaviorY = "none";
+        document.documentElement.style.overflow = "hidden";
+
+        return () => {
+            document.body.style.overflow = previousBodyOverflow;
+            document.body.style.overscrollBehaviorY = previousBodyOverscrollY;
+            document.documentElement.style.overflow = previousHtmlOverflow;
+        };
+    }, []);
 
     // Section order from resumeData, falling back to defaults
     const sectionOrder = useMemo(() => {
@@ -330,62 +324,72 @@ export default function ResumeEditor({ resumeToEdit }: ResumeEditorProps) {
     };
 
     return (
-        <div className="flex grow flex-col">
+        <div className="flex h-full w-full flex-col overflow-hidden bg-muted/10 bg-grid-pattern">
             {/* Main split view -- 35 / 65 */}
             <main className="relative grow">
                 <div className="absolute bottom-0 top-0 flex w-full">
                     {/* LEFT PANEL: Accordion sections (35%) */}
                     <div
-                        ref={leftPanelRef}
                         className={cn(
-                            "w-full min-w-0 max-w-full overflow-hidden md:block md:w-[35%] md:max-w-[35%]",
+                            "w-full min-w-0 max-w-full md:block md:w-[35%] md:max-w-[35%]",
                             showSmResumePreview && "hidden",
                         )}
                     >
-                        <div className="h-full overflow-y-auto overflow-x-hidden">
-                            <div className="w-full min-w-0 max-w-full space-y-2 p-3">
-                                {/* Fixed top section: cannot be dragged/reordered */}
-                                {renderSection("personal-info", {
-                                    draggable: false,
-                                })}
+                        <div className="h-full overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent">
+                            <motion.div
+                                initial={{ opacity: 0, x: -20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ duration: 0.5, ease: "easeOut" }}
+                                className="w-full min-w-0 max-w-full space-y-4 p-4 md:p-6"
+                            >
+                                {/* Header / Title area could go here if needed */}
 
-                                <Reorder.Group
-                                    axis="y"
-                                    values={reorderableSectionOrder}
-                                    onReorder={handleReorderSections}
-                                    as="div"
-                                    className="w-full min-w-0 max-w-full space-y-2 overflow-x-hidden"
-                                >
-                                    {reorderableSectionOrder.map((key) => (
-                                        <DraggableSectionItem
-                                            key={key}
-                                            sectionKey={key}
-                                        >
-                                            {(startDrag) =>
-                                                renderSection(key, {
-                                                    startDrag,
-                                                })
-                                            }
-                                        </DraggableSectionItem>
-                                    ))}
-                                </Reorder.Group>
+                                <div className="space-y-4">
+                                    {/* Fixed top section: cannot be dragged/reordered */}
+                                    {renderSection("personal-info", {
+                                        draggable: false,
+                                    })}
+
+                                    <Reorder.Group
+                                        axis="y"
+                                        values={reorderableSectionOrder}
+                                        onReorder={handleReorderSections}
+                                        as="div"
+                                        className="w-full min-w-0 max-w-full space-y-4 overflow-x-hidden"
+                                    >
+                                        {reorderableSectionOrder.map((key) => (
+                                            <DraggableSectionItem
+                                                key={key}
+                                                sectionKey={key}
+                                            >
+                                                {(startDrag) =>
+                                                    renderSection(key, {
+                                                        startDrag,
+                                                    })
+                                                }
+                                            </DraggableSectionItem>
+                                        ))}
+                                    </Reorder.Group>
+                                </div>
 
                                 {/* Add Content button */}
                                 <Button
                                     type="button"
                                     variant="outline"
-                                    className="w-full"
+                                    className="w-full border-dashed border-primary/30 py-6 text-primary hover:bg-primary/5 hover:border-primary/50 transition-all active:scale-[0.99]"
                                     onClick={() => setAddContentOpen(true)}
                                 >
                                     <Plus className="mr-1.5 h-4 w-4" />
-                                    Add Content
+                                    Add Section
                                 </Button>
-                            </div>
+
+                                <div className="h-10" /> {/* Spacer for bottom scroll */}
+                            </motion.div>
                         </div>
                     </div>
 
                     {/* Divider */}
-                    <div className="hidden shrink-0 md:block md:border-r" />
+                    <div className="hidden shrink-0 md:block w-px bg-border/40" />
 
                     {/* RIGHT PANEL: Live preview (70%) */}
                     <ResumePreviewSection
