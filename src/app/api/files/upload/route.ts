@@ -8,11 +8,14 @@ import {
     buildR2Key,
     r2KeyToUrl,
     PHOTO_MIME_TYPES,
-    PDF_MIME_TYPES,
     MAX_PHOTO_SIZE,
-    MAX_PDF_SIZE,
 } from "@/lib/r2";
 
+/**
+ * POST handler — now only supports photo uploads.
+ * Resume PDF uploads have been migrated to direct R2 uploads via presigned URLs.
+ * See /api/files/upload-url and /api/files/confirm-upload.
+ */
 export async function POST(request: Request) {
     try {
         const session = await requireSession();
@@ -30,30 +33,34 @@ export async function POST(request: Request) {
             );
         }
 
-        if (fileType !== "photo" && fileType !== "resume_pdf") {
+        // Only photo uploads are supported through this route now
+        if (fileType !== "photo") {
             return NextResponse.json(
-                { error: "fileType must be 'photo' or 'resume_pdf'" },
+                { error: "Only photo uploads are supported through this endpoint. Use /api/files/upload-url for PDF uploads." },
                 { status: 400 },
             );
         }
 
         // Validate MIME type and size
-        const isPhoto = fileType === "photo";
-        const allowedMimes = isPhoto ? PHOTO_MIME_TYPES : PDF_MIME_TYPES;
-        const maxSize = isPhoto ? MAX_PHOTO_SIZE : MAX_PDF_SIZE;
-
-        if (!allowedMimes.has(file.type)) {
+        if (!PHOTO_MIME_TYPES.has(file.type)) {
             return NextResponse.json(
                 { error: `Invalid file type: ${file.type}` },
                 { status: 400 },
             );
         }
 
-        if (file.size > maxSize) {
+        if (file.size > MAX_PHOTO_SIZE) {
             return NextResponse.json(
                 {
-                    error: `File too large. Maximum size is ${maxSize / (1024 * 1024)}MB`,
+                    error: `File too large. Maximum size is ${MAX_PHOTO_SIZE / (1024 * 1024)}MB`,
                 },
+                { status: 400 },
+            );
+        }
+
+        if (!resumeId) {
+            return NextResponse.json(
+                { error: "resumeId is required for photo uploads" },
                 { status: 400 },
             );
         }
@@ -61,54 +68,43 @@ export async function POST(request: Request) {
         const bucket = await getR2Bucket();
         const db = await getDb();
 
-        if (isPhoto && !resumeId) {
+        // Validate resume ownership
+        const ownedResume = await db.query.resumes.findFirst({
+            where: and(
+                eq(resumes.id, resumeId),
+                eq(resumes.userId, userId),
+            ),
+            columns: { id: true },
+        });
+
+        if (!ownedResume) {
             return NextResponse.json(
-                { error: "resumeId is required for photo uploads" },
-                { status: 400 },
+                { error: "Resume not found for this user" },
+                { status: 404 },
             );
         }
 
-        // Validate resume ownership for resume-linked photo uploads.
-        if (isPhoto && resumeId) {
-            const ownedResume = await db.query.resumes.findFirst({
-                where: and(
-                    eq(resumes.id, resumeId),
-                    eq(resumes.userId, userId),
-                ),
-                columns: { id: true },
-            });
-
-            if (!ownedResume) {
-                return NextResponse.json(
-                    { error: "Resume not found for this user" },
-                    { status: 404 },
-                );
-            }
-        }
-
         // Auto-replace: remove all existing photo files for this resume before upload.
-        if (isPhoto && resumeId) {
-            const existingPhotos = await db.query.userFiles.findMany({
-                where: and(
-                    eq(userFiles.resumeId, resumeId),
-                    eq(userFiles.userId, userId),
-                    eq(userFiles.fileType, "photo"),
-                ),
-                columns: { id: true, r2Key: true },
-            });
+        const existingPhotos = await db.query.userFiles.findMany({
+            where: and(
+                eq(userFiles.resumeId, resumeId),
+                eq(userFiles.userId, userId),
+                eq(userFiles.fileType, "photo"),
+            ),
+            columns: { id: true, r2Key: true },
+        });
 
-            for (const existing of existingPhotos) {
-                await bucket.delete(existing.r2Key);
-                await db
-                    .delete(userFiles)
-                    .where(eq(userFiles.id, existing.id));
-            }
+        for (const existing of existingPhotos) {
+            await bucket.delete(existing.r2Key);
+            await db
+                .delete(userFiles)
+                .where(eq(userFiles.id, existing.id));
         }
 
         // Build R2 key and upload
         const fileId = crypto.randomUUID();
-        const ext = file.name.split(".").pop()?.toLowerCase() || (isPhoto ? "jpg" : "pdf");
-        const r2Key = buildR2Key(userId, fileType, fileId, ext);
+        const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+        const r2Key = buildR2Key(userId, "photo", fileId, ext);
 
         await bucket.put(r2Key, await file.arrayBuffer(), {
             httpMetadata: { contentType: file.type },
@@ -119,7 +115,7 @@ export async function POST(request: Request) {
             id: fileId,
             userId,
             resumeId,
-            fileType,
+            fileType: "photo",
             r2Key,
             fileName: file.name,
             fileSize: file.size,
@@ -127,37 +123,35 @@ export async function POST(request: Request) {
         });
 
         const url = r2KeyToUrl(r2Key);
-        let resumePhotoSynced: boolean | null = null;
 
-        if (isPhoto && resumeId) {
-            await db
-                .update(resumes)
-                .set({
-                    photoUrl: url,
-                    updatedAt: new Date(),
-                })
-                .where(
-                    and(
-                        eq(resumes.id, resumeId),
-                        eq(resumes.userId, userId),
-                    ),
-                );
-
-            const syncedResume = await db.query.resumes.findFirst({
-                where: and(
+        // Sync photo URL to resume
+        await db
+            .update(resumes)
+            .set({
+                photoUrl: url,
+                updatedAt: new Date(),
+            })
+            .where(
+                and(
                     eq(resumes.id, resumeId),
                     eq(resumes.userId, userId),
                 ),
-                columns: { photoUrl: true },
-            });
-            resumePhotoSynced = syncedResume?.photoUrl === url;
+            );
 
-            if (!resumePhotoSynced) {
-                return NextResponse.json(
-                    { error: "Photo uploaded but failed to sync resume photo URL" },
-                    { status: 500 },
-                );
-            }
+        const syncedResume = await db.query.resumes.findFirst({
+            where: and(
+                eq(resumes.id, resumeId),
+                eq(resumes.userId, userId),
+            ),
+            columns: { photoUrl: true },
+        });
+        const resumePhotoSynced = syncedResume?.photoUrl === url;
+
+        if (!resumePhotoSynced) {
+            return NextResponse.json(
+                { error: "Photo uploaded but failed to sync resume photo URL" },
+                { status: 500 },
+            );
         }
 
         return NextResponse.json({

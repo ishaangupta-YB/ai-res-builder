@@ -22,7 +22,7 @@ import { resumeSchema, type ResumeValues } from "@/lib/validation";
 import { eq, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { generateObject } from "ai";
+import { generateText, Output, NoObjectGeneratedError } from "ai";
 import { getAiModel, MODEL_ID } from "@/lib/ai";
 import {
     aiResumeExtractionSchema,
@@ -682,147 +682,355 @@ function buildSectionVisibility(
 // ---------------------------------------------------------------------------
 // Recreate Resume from uploaded PDF via AI extraction
 // ---------------------------------------------------------------------------
-export async function recreateResumeFromPdf(fileId: string): Promise<void> {
-    const session = await requireSession();
-    const userId = session.user.id;
+export async function recreateResumeFromPdf(
+    fileId: string,
+): Promise<{ success: boolean; resumeId?: string; error?: string }> {
+    try {
+        const session = await requireSession();
+        const userId = session.user.id;
 
-    // 1. Check cache for existing extraction
-    const cached = await getCachedAiResult(fileId, "extraction");
-    let extraction: AiResumeExtraction;
+        // 1. Check cache for existing extraction
+        const cached = await getCachedAiResult(fileId, "extraction");
+        let extraction: AiResumeExtraction;
 
-    if (cached) {
-        extraction = cached as AiResumeExtraction;
-    } else {
-        // 2. Fetch PDF from R2
-        const { bytes, fileName } = await getPdfBytesFromR2(userId, fileId);
+        if (cached) {
+            extraction = cached as AiResumeExtraction;
+        } else {
+            // 2. Fetch PDF from R2
+            const { bytes, fileName } = await getPdfBytesFromR2(userId, fileId);
 
-        // 3. Call Gemini via AI Gateway for structured extraction
-        const model = await getAiModel();
-        const result = await generateObject({
-            model,
-            schema: aiResumeExtractionSchema,
-            messages: [
-                {
-                    role: "user",
-                    content: [
-                        {
-                            type: "file",
-                            data: bytes,
-                            mediaType: "application/pdf",
-                        },
-                        {
-                            type: "text",
-                            text: `Extract all structured resume data from this PDF file named "${fileName}".
+            // 3. Call Gemini via AI Gateway for structured extraction
+            const model = await getAiModel();
+            const { output } = await generateText({
+                model,
+                output: Output.object({
+                    schema: aiResumeExtractionSchema,
+                }),
+                messages: [
+                    {
+                        role: "user",
+                        content: [
+                            {
+                                type: "file",
+                                data: bytes,
+                                mediaType: "application/pdf",
+                            },
+                            {
+                                type: "text",
+                                text: `Extract all structured resume data from this PDF file named "${fileName}".
 Extract every section you can find: personal information, summary/objective, work experience, education, projects, skills, awards, publications, certificates, languages, courses, references, and interests.
 For dates, use YYYY-MM-DD format. If only a year is given, use YYYY-01-01. If month and year, use YYYY-MM-01.
 For descriptions with bullet points, preserve them as newline-separated items.
 Extract skills as individual items, not grouped categories.
 Be thorough — do not skip any content from the resume.`,
-                        },
-                    ],
-                },
-            ],
-            maxRetries: 2,
-        });
+                            },
+                        ],
+                    },
+                ],
+                maxRetries: 2,
+            });
 
-        extraction = result.object;
+            if (!output) {
+                return {
+                    success: false,
+                    error: "AI could not extract structured data from this PDF. Please ensure it is a valid resume.",
+                };
+            }
 
-        // 4. Cache the extraction result
-        await saveCachedAiResult(
-            userId,
-            fileId,
-            "extraction",
-            extraction,
-            MODEL_ID,
+            extraction = output;
+
+            // 4. Cache the extraction result
+            await saveCachedAiResult(
+                userId,
+                fileId,
+                "extraction",
+                extraction,
+                MODEL_ID,
+            );
+        }
+
+        // 5. Transform AI extraction to ResumeValues shape
+        const nameParts = [extraction.firstName, extraction.lastName].filter(
+            Boolean,
         );
+        const resumeValues: ResumeValues = {
+            title:
+                nameParts.length > 0
+                    ? `${nameParts.join(" ")}'s Resume`
+                    : "Imported Resume",
+            firstName: extraction.firstName,
+            lastName: extraction.lastName,
+            jobTitle: extraction.jobTitle,
+            email: extraction.email,
+            phone: extraction.phone,
+            city: extraction.city,
+            country: extraction.country,
+            linkedin: extraction.linkedin,
+            website: extraction.website,
+            summary: extraction.summary,
+            skills: extraction.skills,
+
+            // Defaults for visual settings
+            colorHex: "#000000",
+            borderStyle: "squircle",
+            layout: "single-column",
+            fontSize: 10,
+            fontFamily: "serif",
+
+            // Compute from extracted data
+            sectionOrder: buildSectionOrder(extraction),
+            sectionVisibility: buildSectionVisibility(extraction),
+
+            workExperiences: extraction.workExperiences?.map((exp, idx) => ({
+                ...exp,
+                visible: true,
+                displayOrder: idx,
+            })),
+            educations: extraction.educations?.map((edu, idx) => ({
+                ...edu,
+                visible: true,
+                displayOrder: idx,
+            })),
+            projects: extraction.projects?.map((p, idx) => ({
+                ...p,
+                visible: true,
+                displayOrder: idx,
+            })),
+            awards: extraction.awards?.map((a, idx) => ({
+                ...a,
+                visible: true,
+                displayOrder: idx,
+            })),
+            publications: extraction.publications?.map((p, idx) => ({
+                ...p,
+                visible: true,
+                displayOrder: idx,
+            })),
+            certificates: extraction.certificates?.map((c, idx) => ({
+                ...c,
+                visible: true,
+                displayOrder: idx,
+            })),
+            languages: extraction.languages?.map((l, idx) => ({
+                ...l,
+                visible: true,
+                displayOrder: idx,
+            })),
+            courses: extraction.courses?.map((c, idx) => ({
+                ...c,
+                visible: true,
+                displayOrder: idx,
+            })),
+            references: extraction.references?.map((r, idx) => ({
+                ...r,
+                visible: true,
+                displayOrder: idx,
+            })),
+            interests: extraction.interests?.map((i, idx) => ({
+                ...i,
+                visible: true,
+                displayOrder: idx,
+            })),
+        };
+
+        // 6. Create resume in DB (without the redirect)
+        const db = await getDb();
+        const [resume] = await db
+            .insert(resumes)
+            .values({
+                userId,
+                title: resumeValues.title || "Imported Resume",
+                firstName: resumeValues.firstName || null,
+                lastName: resumeValues.lastName || null,
+                jobTitle: resumeValues.jobTitle || null,
+                email: resumeValues.email || null,
+                phone: resumeValues.phone || null,
+                city: resumeValues.city || null,
+                country: resumeValues.country || null,
+                linkedin: resumeValues.linkedin || null,
+                website: resumeValues.website || null,
+                summary: resumeValues.summary || null,
+                colorHex: resumeValues.colorHex || "#000000",
+                borderStyle: resumeValues.borderStyle || "squircle",
+                layout: resumeValues.layout || "single-column",
+                skills: resumeValues.skills ?? [],
+                sectionOrder: resumeValues.sectionOrder ?? [],
+                sectionVisibility: resumeValues.sectionVisibility ?? {},
+                fieldVisibility: resumeValues.fieldVisibility ?? {},
+                fontSize: resumeValues.fontSize ?? 10,
+                fontFamily: resumeValues.fontFamily ?? "serif",
+            })
+            .returning();
+
+        const resumeId = resume.id;
+
+        // 7. Insert related rows
+        if (resumeValues.workExperiences?.length) {
+            await db.insert(workExperiences).values(
+                resumeValues.workExperiences.map((exp, idx) => ({
+                    resumeId,
+                    position: exp.position || null,
+                    company: exp.company || null,
+                    startDate: exp.startDate ? new Date(exp.startDate) : null,
+                    endDate: exp.endDate ? new Date(exp.endDate) : null,
+                    description: exp.description || null,
+                    location: exp.location || null,
+                    subheading: exp.subheading || null,
+                    visible: exp.visible ?? true,
+                    displayOrder: idx,
+                })),
+            );
+        }
+
+        if (resumeValues.educations?.length) {
+            await db.insert(educations).values(
+                resumeValues.educations.map((edu, idx) => ({
+                    resumeId,
+                    degree: edu.degree || null,
+                    school: edu.school || null,
+                    fieldOfStudy: edu.fieldOfStudy || null,
+                    gpa: edu.gpa || null,
+                    description: edu.description || null,
+                    location: edu.location || null,
+                    startDate: edu.startDate ? new Date(edu.startDate) : null,
+                    endDate: edu.endDate ? new Date(edu.endDate) : null,
+                    visible: edu.visible ?? true,
+                    displayOrder: idx,
+                })),
+            );
+        }
+
+        if (resumeValues.projects?.length) {
+            await db.insert(projects).values(
+                resumeValues.projects.map((p, idx) => ({
+                    resumeId,
+                    title: p.title || null,
+                    subtitle: p.subtitle || null,
+                    description: p.description || null,
+                    link: p.link || null,
+                    startDate: p.startDate ? new Date(p.startDate) : null,
+                    endDate: p.endDate ? new Date(p.endDate) : null,
+                    visible: p.visible ?? true,
+                    displayOrder: idx,
+                })),
+            );
+        }
+
+        if (resumeValues.awards?.length) {
+            await db.insert(awards).values(
+                resumeValues.awards.map((a, idx) => ({
+                    resumeId,
+                    title: a.title || null,
+                    issuer: a.issuer || null,
+                    description: a.description || null,
+                    date: a.date ? new Date(a.date) : null,
+                    visible: a.visible ?? true,
+                    displayOrder: idx,
+                })),
+            );
+        }
+
+        if (resumeValues.publications?.length) {
+            await db.insert(publications).values(
+                resumeValues.publications.map((p, idx) => ({
+                    resumeId,
+                    title: p.title || null,
+                    publisher: p.publisher || null,
+                    authors: p.authors || null,
+                    description: p.description || null,
+                    date: p.date ? new Date(p.date) : null,
+                    link: p.link || null,
+                    visible: p.visible ?? true,
+                    displayOrder: idx,
+                })),
+            );
+        }
+
+        if (resumeValues.certificates?.length) {
+            await db.insert(certificates).values(
+                resumeValues.certificates.map((c, idx) => ({
+                    resumeId,
+                    title: c.title || null,
+                    issuer: c.issuer || null,
+                    description: c.description || null,
+                    date: c.date ? new Date(c.date) : null,
+                    link: c.link || null,
+                    credentialId: c.credentialId || null,
+                    visible: c.visible ?? true,
+                    displayOrder: idx,
+                })),
+            );
+        }
+
+        if (resumeValues.languages?.length) {
+            await db.insert(languages).values(
+                resumeValues.languages.map((l, idx) => ({
+                    resumeId,
+                    language: l.language || null,
+                    proficiency: l.proficiency || null,
+                    visible: l.visible ?? true,
+                    displayOrder: idx,
+                })),
+            );
+        }
+
+        if (resumeValues.courses?.length) {
+            await db.insert(courses).values(
+                resumeValues.courses.map((c, idx) => ({
+                    resumeId,
+                    name: c.name || null,
+                    institution: c.institution || null,
+                    description: c.description || null,
+                    date: c.date ? new Date(c.date) : null,
+                    visible: c.visible ?? true,
+                    displayOrder: idx,
+                })),
+            );
+        }
+
+        if (resumeValues.references?.length) {
+            await db.insert(resumeReferences).values(
+                resumeValues.references.map((r, idx) => ({
+                    resumeId,
+                    name: r.name || null,
+                    position: r.position || null,
+                    company: r.company || null,
+                    email: r.email || null,
+                    phone: r.phone || null,
+                    visible: r.visible ?? true,
+                    displayOrder: idx,
+                })),
+            );
+        }
+
+        if (resumeValues.interests?.length) {
+            await db.insert(interests).values(
+                resumeValues.interests.map((i, idx) => ({
+                    resumeId,
+                    name: i.name || null,
+                    visible: i.visible ?? true,
+                    displayOrder: idx,
+                })),
+            );
+        }
+
+        return { success: true, resumeId };
+    } catch (err) {
+        console.error("[recreateResumeFromPdf] error:", err);
+        if (NoObjectGeneratedError.isInstance(err)) {
+            return {
+                success: false,
+                error: "AI could not parse this resume. The PDF may be image-based or in an unsupported format.",
+            };
+        }
+        return {
+            success: false,
+            error:
+                err instanceof Error
+                    ? err.message
+                    : "Failed to recreate resume. Please try again.",
+        };
     }
-
-    // 5. Transform AI extraction to ResumeValues shape
-    const nameParts = [extraction.firstName, extraction.lastName].filter(
-        Boolean,
-    );
-    const resumeValues: ResumeValues = {
-        title:
-            nameParts.length > 0
-                ? `${nameParts.join(" ")}'s Resume`
-                : "Imported Resume",
-        firstName: extraction.firstName,
-        lastName: extraction.lastName,
-        jobTitle: extraction.jobTitle,
-        email: extraction.email,
-        phone: extraction.phone,
-        city: extraction.city,
-        country: extraction.country,
-        linkedin: extraction.linkedin,
-        website: extraction.website,
-        summary: extraction.summary,
-        skills: extraction.skills,
-
-        // Defaults for visual settings
-        colorHex: "#000000",
-        borderStyle: "squircle",
-        layout: "single-column",
-        fontSize: 10,
-        fontFamily: "serif",
-
-        // Compute from extracted data
-        sectionOrder: buildSectionOrder(extraction),
-        sectionVisibility: buildSectionVisibility(extraction),
-
-        workExperiences: extraction.workExperiences?.map((exp, idx) => ({
-            ...exp,
-            visible: true,
-            displayOrder: idx,
-        })),
-        educations: extraction.educations?.map((edu, idx) => ({
-            ...edu,
-            visible: true,
-            displayOrder: idx,
-        })),
-        projects: extraction.projects?.map((p, idx) => ({
-            ...p,
-            visible: true,
-            displayOrder: idx,
-        })),
-        awards: extraction.awards?.map((a, idx) => ({
-            ...a,
-            visible: true,
-            displayOrder: idx,
-        })),
-        publications: extraction.publications?.map((p, idx) => ({
-            ...p,
-            visible: true,
-            displayOrder: idx,
-        })),
-        certificates: extraction.certificates?.map((c, idx) => ({
-            ...c,
-            visible: true,
-            displayOrder: idx,
-        })),
-        languages: extraction.languages?.map((l, idx) => ({
-            ...l,
-            visible: true,
-            displayOrder: idx,
-        })),
-        courses: extraction.courses?.map((c, idx) => ({
-            ...c,
-            visible: true,
-            displayOrder: idx,
-        })),
-        references: extraction.references?.map((r, idx) => ({
-            ...r,
-            visible: true,
-            displayOrder: idx,
-        })),
-        interests: extraction.interests?.map((i, idx) => ({
-            ...i,
-            visible: true,
-            displayOrder: idx,
-        })),
-    };
-
-    // 6. Reuse createResumeFromTemplate — handles DB inserts + redirect
-    await createResumeFromTemplate(resumeValues);
 }
 
 // ---------------------------------------------------------------------------
@@ -830,25 +1038,30 @@ Be thorough — do not skip any content from the resume.`,
 // ---------------------------------------------------------------------------
 export async function analyzeResumePdf(
     fileId: string,
+    forceRefresh: boolean = false,
 ): Promise<{ success: boolean; analysis?: AiResumeAnalysis; error?: string }> {
     try {
         const session = await requireSession();
         const userId = session.user.id;
 
-        // 1. Check cache
-        const cached = await getCachedAiResult(fileId, "analysis");
-        if (cached) {
-            return { success: true, analysis: cached as AiResumeAnalysis };
+        // 1. Check cache (skip if forceRefresh)
+        if (!forceRefresh) {
+            const cached = await getCachedAiResult(fileId, "analysis");
+            if (cached) {
+                return { success: true, analysis: cached as AiResumeAnalysis };
+            }
         }
 
         // 2. Fetch PDF from R2
         const { bytes, fileName } = await getPdfBytesFromR2(userId, fileId);
 
-        // 3. Call Gemini for analysis
+        // 3. Call Gemini for analysis via generateText + Output.object
         const model = await getAiModel();
-        const result = await generateObject({
+        const { output } = await generateText({
             model,
-            schema: aiResumeAnalysisSchema,
+            output: Output.object({
+                schema: aiResumeAnalysisSchema,
+            }),
             messages: [
                 {
                     role: "user",
@@ -881,9 +1094,28 @@ Score fairly — most resumes should fall in the 40-80 range. Only exceptional r
             maxRetries: 2,
         });
 
-        const analysis = result.object;
+        if (!output) {
+            return {
+                success: false,
+                error: "AI could not generate an analysis for this resume. Please try again.",
+            };
+        }
 
-        // 4. Cache the result
+        const analysis = output;
+
+        // 4. Cache the result (delete old cache first on forceRefresh)
+        if (forceRefresh) {
+            const db = await getDb();
+            await db
+                .delete(aiResults)
+                .where(
+                    and(
+                        eq(aiResults.userFileId, fileId),
+                        eq(aiResults.resultType, "analysis"),
+                    ),
+                );
+        }
+
         await saveCachedAiResult(
             userId,
             fileId,
@@ -895,6 +1127,12 @@ Score fairly — most resumes should fall in the 40-80 range. Only exceptional r
         return { success: true, analysis };
     } catch (err) {
         console.error("[analyzeResumePdf] error:", err);
+        if (NoObjectGeneratedError.isInstance(err)) {
+            return {
+                success: false,
+                error: "AI could not parse this resume for analysis. The PDF may be image-based or in an unsupported format.",
+            };
+        }
         return {
             success: false,
             error:

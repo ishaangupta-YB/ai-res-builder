@@ -53,11 +53,6 @@
 		{
 			"binding": "R2_BUCKET",
 			"bucket_name": "ai-resume-uploads"
-		},
-		{
-			"bucket_name": "ai-resume-uploads",
-			"binding": "ai_resume_uploads",
-			"remote": true
 		}
 	]
 	/**

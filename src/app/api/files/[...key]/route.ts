@@ -13,13 +13,11 @@ export async function GET(
         const { key } = await params;
         const r2Key = key.map(decodeURIComponent).join("/");
 
-        // Ownership check: R2 keys follow the pattern users/{userId}/...
+        // Ownership check: R2 keys follow the pattern {userId}/{fileId}.ext
         // Verify the requesting user owns this file
         const pathSegments = r2Key.split("/");
-        if (pathSegments[0] === "users" && pathSegments[1]) {
-            if (pathSegments[1] !== session.user.id) {
-                return new NextResponse("Forbidden", { status: 403 });
-            }
+        if (pathSegments[0] !== session.user.id) {
+            return new NextResponse("Forbidden", { status: 403 });
         }
 
         const bucket = await getR2Bucket();

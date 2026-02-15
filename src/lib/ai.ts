@@ -13,7 +13,6 @@ export async function getAiModel() {
             CF_ACCOUNT_ID: string;
             CF_AIG_GATEWAY: string;
             CF_AIG_TOKEN: string;
-            GOOGLE_AI_API_KEY: string;
         };
 
         const aigateway = createAiGateway({
@@ -22,9 +21,8 @@ export async function getAiModel() {
             apiKey: env.CF_AIG_TOKEN,
         });
 
-        const google = createGoogleGenerativeAI({
-            apiKey: env.GOOGLE_AI_API_KEY,
-        });
+        // No Google API key needed — AI Gateway handles auth via CF credits
+        const google = createGoogleGenerativeAI();
 
         cachedModel = aigateway(google(MODEL_ID));
     }

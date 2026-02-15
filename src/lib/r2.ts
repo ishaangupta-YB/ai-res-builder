@@ -8,12 +8,11 @@ export async function getR2Bucket(): Promise<R2Bucket> {
 
 export function buildR2Key(
     userId: string,
-    fileType: "photo" | "resume_pdf",
+    _fileType: "photo" | "resume_pdf",
     fileId: string,
     extension: string,
 ): string {
-    const folder = fileType === "photo" ? "photos" : "resumes";
-    return `users/${userId}/${folder}/${fileId}.${extension}`;
+    return `${userId}/${fileId}.${extension}`;
 }
 
 export function r2KeyToUrl(r2Key: string): string {

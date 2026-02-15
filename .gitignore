@@ -53,6 +53,6 @@ next-env.d.ts
 
 better-oauth.md
 trycookie.txt
-cf-ai.md
-.claude
 .agents
+.claude
+cf-ai.md

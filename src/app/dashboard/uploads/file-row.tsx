@@ -59,16 +59,27 @@ export function FileRow({ file, onAnalyze }: FileRowProps) {
 
     async function handleRecreate() {
         setIsRecreating(true);
+        const toastId = toast.loading(
+            "Extracting resume data with AI... This may take 10-15 seconds.",
+        );
         try {
-            await recreateResumeFromPdf(file.id);
-            // Server action calls redirect() on success — this line won't run
-        } catch (err) {
-            // Next.js redirect throws a special error; only show toast for real errors
-            const message =
-                err instanceof Error ? err.message : "Failed to recreate";
-            if (!message.includes("NEXT_REDIRECT")) {
-                toast.error(message);
+            const result = await recreateResumeFromPdf(file.id);
+            if (result.success && result.resumeId) {
+                toast.success("Resume recreated successfully! Redirecting...", {
+                    id: toastId,
+                });
+                router.push(`/dashboard/editor/${result.resumeId}`);
+            } else {
+                toast.error(result.error || "Failed to recreate resume", {
+                    id: toastId,
+                });
+                setIsRecreating(false);
             }
+        } catch (err) {
+            toast.error(
+                err instanceof Error ? err.message : "Failed to recreate",
+                { id: toastId },
+            );
             setIsRecreating(false);
         }
     }

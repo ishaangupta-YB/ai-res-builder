@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
     Drawer,
     DrawerContent,
@@ -20,6 +20,7 @@ import {
     ChevronDown,
     ChevronUp,
     Shield,
+    RefreshCw,
 } from "lucide-react";
 import { analyzeResumePdf } from "../actions";
 import type { AiResumeAnalysis } from "@/lib/ai-schemas";
@@ -58,8 +59,14 @@ export function AnalysisDrawer({
         new Set(),
     );
 
+    // Track the last fetched fileId to avoid redundant re-fetches
+    const lastFetchedFileId = useRef<string | null>(null);
+
     useEffect(() => {
         if (!open || !fileId) return;
+
+        // Skip if we already have analysis for this exact file
+        if (lastFetchedFileId.current === fileId && analysis) return;
 
         setLoading(true);
         setError(null);
@@ -69,12 +76,13 @@ export function AnalysisDrawer({
         analyzeResumePdf(fileId).then((result) => {
             if (result.success && result.analysis) {
                 setAnalysis(result.analysis);
+                lastFetchedFileId.current = fileId;
             } else {
                 setError(result.error || "Analysis failed");
             }
             setLoading(false);
         });
-    }, [open, fileId]);
+    }, [open, fileId]); // eslint-disable-line react-hooks/exhaustive-deps
 
     function toggleSection(idx: number) {
         setExpandedSections((prev) => {
@@ -82,6 +90,24 @@ export function AnalysisDrawer({
             if (next.has(idx)) next.delete(idx);
             else next.add(idx);
             return next;
+        });
+    }
+
+    function handleReanalyze() {
+        if (!fileId) return;
+        setLoading(true);
+        setError(null);
+        setAnalysis(null);
+        setExpandedSections(new Set());
+
+        analyzeResumePdf(fileId, true).then((result) => {
+            if (result.success && result.analysis) {
+                setAnalysis(result.analysis);
+                lastFetchedFileId.current = fileId;
+            } else {
+                setError(result.error || "Analysis failed");
+            }
+            setLoading(false);
         });
     }
 
@@ -94,6 +120,7 @@ export function AnalysisDrawer({
         analyzeResumePdf(fileId).then((result) => {
             if (result.success && result.analysis) {
                 setAnalysis(result.analysis);
+                lastFetchedFileId.current = fileId;
             } else {
                 setError(result.error || "Analysis failed");
             }
@@ -112,18 +139,34 @@ export function AnalysisDrawer({
                                 {fileName || "Resume"} — AI-powered review
                             </DrawerDescription>
                         </div>
-                        {analysis && (
-                            <div className="text-center">
-                                <div
-                                    className={`text-3xl font-bold ${scoreColor(analysis.overallScore)}`}
-                                >
-                                    {analysis.overallScore}
-                                </div>
-                                <div className="text-xs text-muted-foreground">
-                                    Overall Score
-                                </div>
-                            </div>
-                        )}
+                        <div className="flex items-center gap-2">
+                            {analysis && (
+                                <>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={handleReanalyze}
+                                        disabled={loading}
+                                        title="Run a fresh analysis (bypass cache)"
+                                    >
+                                        <RefreshCw
+                                            className={`mr-1 h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`}
+                                        />
+                                        Re-analyze
+                                    </Button>
+                                    <div className="text-center">
+                                        <div
+                                            className={`text-3xl font-bold ${scoreColor(analysis.overallScore)}`}
+                                        >
+                                            {analysis.overallScore}
+                                        </div>
+                                        <div className="text-xs text-muted-foreground">
+                                            Overall Score
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+                        </div>
                     </div>
                 </DrawerHeader>
 
@@ -303,55 +346,55 @@ export function AnalysisDrawer({
                                                     </p>
                                                     {section.strengths.length >
                                                         0 && (
-                                                        <div>
-                                                            <p className="mb-1 text-xs font-medium text-green-600 dark:text-green-400">
-                                                                Strengths:
-                                                            </p>
-                                                            <ul className="space-y-0.5">
-                                                                {section.strengths.map(
-                                                                    (s, i) => (
-                                                                        <li
-                                                                            key={
-                                                                                i
-                                                                            }
-                                                                            className="text-xs text-muted-foreground"
-                                                                        >
-                                                                            +{" "}
-                                                                            {s}
-                                                                        </li>
-                                                                    ),
-                                                                )}
-                                                            </ul>
-                                                        </div>
-                                                    )}
+                                                            <div>
+                                                                <p className="mb-1 text-xs font-medium text-green-600 dark:text-green-400">
+                                                                    Strengths:
+                                                                </p>
+                                                                <ul className="space-y-0.5">
+                                                                    {section.strengths.map(
+                                                                        (s, i) => (
+                                                                            <li
+                                                                                key={
+                                                                                    i
+                                                                                }
+                                                                                className="text-xs text-muted-foreground"
+                                                                            >
+                                                                                +{" "}
+                                                                                {s}
+                                                                            </li>
+                                                                        ),
+                                                                    )}
+                                                                </ul>
+                                                            </div>
+                                                        )}
                                                     {section.improvements
                                                         .length > 0 && (
-                                                        <div>
-                                                            <p className="mb-1 text-xs font-medium text-orange-600 dark:text-orange-400">
-                                                                Improvements:
-                                                            </p>
-                                                            <ul className="space-y-0.5">
-                                                                {section.improvements.map(
-                                                                    (
-                                                                        imp,
-                                                                        i,
-                                                                    ) => (
-                                                                        <li
-                                                                            key={
-                                                                                i
-                                                                            }
-                                                                            className="text-xs text-muted-foreground"
-                                                                        >
-                                                                            -{" "}
-                                                                            {
-                                                                                imp
-                                                                            }
-                                                                        </li>
-                                                                    ),
-                                                                )}
-                                                            </ul>
-                                                        </div>
-                                                    )}
+                                                            <div>
+                                                                <p className="mb-1 text-xs font-medium text-orange-600 dark:text-orange-400">
+                                                                    Improvements:
+                                                                </p>
+                                                                <ul className="space-y-0.5">
+                                                                    {section.improvements.map(
+                                                                        (
+                                                                            imp,
+                                                                            i,
+                                                                        ) => (
+                                                                            <li
+                                                                                key={
+                                                                                    i
+                                                                                }
+                                                                                className="text-xs text-muted-foreground"
+                                                                            >
+                                                                                -{" "}
+                                                                                {
+                                                                                    imp
+                                                                                }
+                                                                            </li>
+                                                                        ),
+                                                                    )}
+                                                                </ul>
+                                                            </div>
+                                                        )}
                                                 </div>
                                             )}
                                         </div>
