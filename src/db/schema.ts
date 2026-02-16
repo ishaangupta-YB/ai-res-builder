@@ -531,6 +531,24 @@ export const aiResultsRelations = relations(aiResults, ({ one }) => ({
 }));
 
 // ---------------------------------------------------------------------------
+// AI Usage Logs (token tracking per user)
+// ---------------------------------------------------------------------------
+export const aiUsageLogs = sqliteTable("ai_usage_logs", {
+    id: text("id")
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    userId: text("user_id").notNull(),
+    featureType: text("feature_type").notNull(), // "enhance" | "recreate" | "analyze"
+    inputTokens: integer("input_tokens").notNull().default(0),
+    outputTokens: integer("output_tokens").notNull().default(0),
+    totalTokens: integer("total_tokens").notNull().default(0),
+    modelId: text("model_id"),
+    createdAt: integer("created_at", { mode: "timestamp" })
+        .notNull()
+        .default(sql`(unixepoch())`),
+});
+
+// ---------------------------------------------------------------------------
 // Combine all schemas here for migrations
 // ---------------------------------------------------------------------------
 export const schema = {
@@ -562,4 +580,5 @@ export const schema = {
     userFilesRelations,
     aiResults,
     aiResultsRelations,
+    aiUsageLogs,
 } as const;

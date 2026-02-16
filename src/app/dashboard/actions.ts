@@ -25,6 +25,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { generateText, Output, NoObjectGeneratedError } from "ai";
 import { getAiModel, MODEL_ID } from "@/lib/ai";
+import { logAiUsage, checkAiUsageLimit } from "@/lib/ai-usage";
 import {
     aiResumeExtractionSchema,
     aiResumeAnalysisSchema,
@@ -697,12 +698,21 @@ export async function recreateResumeFromPdf(
         if (cached) {
             extraction = cached as AiResumeExtraction;
         } else {
-            // 2. Get a temporary presigned URL for the PDF
+            // 2. Check AI usage limit
+            const usageCheck = await checkAiUsageLimit(userId);
+            if (!usageCheck.allowed) {
+                return {
+                    success: false,
+                    error: `AI usage limit reached (${usageCheck.used.toLocaleString()} / ${usageCheck.limit.toLocaleString()} tokens this month). Upgrade to premium for unlimited access.`,
+                };
+            }
+
+            // 3. Get a temporary presigned URL for the PDF
             const { url: pdfUrl, fileName } = await getPdfUrlFromR2(userId, fileId);
 
-            // 3. Call Gemini via AI Gateway for structured extraction
+            // 4. Call Gemini via AI Gateway for structured extraction
             const model = await getAiModel();
-            const { output } = await generateText({
+            const { output, usage } = await generateText({
                 model,
                 output: Output.object({
                     schema: aiResumeExtractionSchema,
@@ -829,7 +839,10 @@ Extract EVERY section you can find: personal info, summary/objective, work exper
 
             extraction = output;
 
-            // 4. Cache the extraction result
+            // 5. Log token usage
+            await logAiUsage(userId, usage, "recreate");
+
+            // 6. Cache the extraction result
             await saveCachedAiResult(
                 userId,
                 fileId,
@@ -1143,12 +1156,21 @@ export async function analyzeResumePdf(
             }
         }
 
-        // 2. Get a temporary presigned URL for the PDF
+        // 2. Check AI usage limit
+        const usageCheck = await checkAiUsageLimit(userId);
+        if (!usageCheck.allowed) {
+            return {
+                success: false,
+                error: `AI usage limit reached (${usageCheck.used.toLocaleString()} / ${usageCheck.limit.toLocaleString()} tokens this month). Upgrade to premium for unlimited access.`,
+            };
+        }
+
+        // 3. Get a temporary presigned URL for the PDF
         const { url: pdfUrl, fileName } = await getPdfUrlFromR2(userId, fileId);
 
-        // 3. Call Gemini for analysis via generateText + Output.object
+        // 4. Call Gemini for analysis via generateText + Output.object
         const model = await getAiModel();
-        const { output } = await generateText({
+        const { output, usage } = await generateText({
             model,
             output: Output.object({
                 schema: aiResumeAnalysisSchema,
@@ -1274,7 +1296,10 @@ Finally provide:
 
         const analysis = output;
 
-        // 4. Cache the result (delete old cache first on forceRefresh)
+        // 5. Log token usage
+        await logAiUsage(userId, usage, "analyze");
+
+        // 6. Cache the result (delete old cache first on forceRefresh)
         if (forceRefresh) {
             const db = await getDb();
             await db

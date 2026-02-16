@@ -3,6 +3,7 @@
 import { generateText } from "ai";
 import { getAiModel } from "@/lib/ai";
 import { requireSession } from "@/lib/auth-server";
+import { logAiUsage, checkAiUsageLimit } from "@/lib/ai-usage";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -140,7 +141,17 @@ export async function enhanceResumeField(
     input: EnhanceFieldInput,
 ): Promise<EnhanceFieldResult> {
     try {
-        await requireSession();
+        const session = await requireSession();
+        const userId = session.user.id;
+
+        // Check AI usage limit
+        const usageCheck = await checkAiUsageLimit(userId);
+        if (!usageCheck.allowed) {
+            return {
+                success: false,
+                error: `AI usage limit reached (${usageCheck.used.toLocaleString()} / ${usageCheck.limit.toLocaleString()} tokens this month). Upgrade to premium for unlimited access.`,
+            };
+        }
 
         const systemPrompt = SECTION_PROMPTS[input.fieldType];
         if (!systemPrompt) {
@@ -150,12 +161,15 @@ export async function enhanceResumeField(
         const userMessage = buildUserMessage(input);
         const model = await getAiModel();
 
-        const { text } = await generateText({
+        const { text, usage } = await generateText({
             model,
             system: systemPrompt,
             messages: [{ role: "user", content: userMessage }],
             maxRetries: 1,
         });
+
+        // Log token usage
+        await logAiUsage(userId, usage, "enhance");
 
         const trimmed = text.trim();
         if (!trimmed) {

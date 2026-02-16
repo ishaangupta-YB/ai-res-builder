@@ -45,7 +45,6 @@ export default function SectionWrapper({
     draggable = true,
 }: SectionWrapperProps) {
 
-
     return (
         <Collapsible
             open={open}

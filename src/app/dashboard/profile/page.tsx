@@ -1,6 +1,7 @@
 import { getDb } from "@/db";
 import { resumes, userSubscriptions } from "@/db/schema";
 import { requireSession } from "@/lib/auth-server";
+import { getAiUsageInfo } from "@/lib/ai-usage";
 import { eq, desc } from "drizzle-orm";
 import {
     FileText,
@@ -12,6 +13,7 @@ import {
     Calendar,
     Star,
     Zap,
+    Sparkles,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -24,6 +26,7 @@ import {
     CardHeader,
     CardTitle,
 } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
 import Link from "next/link";
@@ -43,6 +46,9 @@ export default async function ProfilePage() {
     const subscription = await db.query.userSubscriptions.findFirst({
         where: eq(userSubscriptions.userId, session.user.id),
     });
+
+    // Fetch AI token usage for current month
+    const aiUsage = await getAiUsageInfo(session.user.id);
 
     const user = session.user;
     const initials = user.name
@@ -64,8 +70,8 @@ export default async function ProfilePage() {
     // Subscription details
     const isPro = !!subscription && subscription.stripeCancelAtPeriodEnd === false; // Simplified logic
     const planName = isPro ? "Pro Plan" : "Free Plan";
-    const renewalDate = subscription?.stripeCurrentPeriodEnd 
-        ? format(subscription.stripeCurrentPeriodEnd, "MMMM d, yyyy") 
+    const renewalDate = subscription?.stripeCurrentPeriodEnd
+        ? format(subscription.stripeCurrentPeriodEnd, "MMMM d, yyyy")
         : null;
 
     return (
@@ -76,7 +82,7 @@ export default async function ProfilePage() {
                     <p className="mt-1 text-muted-foreground">
                         Manage your account, subscription, and preferences.
                     </p>
-                </div> 
+                </div>
             </div>
 
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -138,7 +144,7 @@ export default async function ProfilePage() {
                                 <span className="text-sm font-normal text-muted-foreground">/month</span>
                             </div>
                         </div>
-                        
+
                         {subscription ? (
                             <div className="space-y-2 text-sm">
                                 <div className="flex justify-between">
@@ -151,17 +157,17 @@ export default async function ProfilePage() {
                                 </div>
                             </div>
                         ) : (
-                             <div className="text-sm text-muted-foreground">
+                            <div className="text-sm text-muted-foreground">
                                 You are currently on the free tier. Upgrade to unlock premium features.
                             </div>
                         )}
                     </CardContent>
                     <CardFooter>
-                         <Link href="/dashboard/billing" className="w-full">
+                        <Link href="/dashboard/billing" className="w-full">
                             <Button className="w-full" variant={isPro ? "outline" : "default"}>
                                 {isPro ? "Manage Subscription" : "Upgrade to Pro"}
                             </Button>
-                         </Link>
+                        </Link>
                     </CardFooter>
                 </Card>
             </div>
@@ -208,6 +214,50 @@ export default async function ProfilePage() {
                     </CardContent>
                 </Card>
             </div>
+
+            {/* AI Usage */}
+            <Card>
+                <CardHeader>
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <Sparkles className="h-5 w-5 text-primary" />
+                            <CardTitle>AI Usage</CardTitle>
+                        </div>
+                        <Badge variant={aiUsage.usagePercent >= 90 ? "destructive" : aiUsage.usagePercent >= 70 ? "secondary" : "outline"}>
+                            {aiUsage.usagePercent}% used
+                        </Badge>
+                    </div>
+                    <CardDescription>
+                        Your AI token consumption for this month
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <Progress value={aiUsage.usagePercent} className="h-3" />
+                    {/* <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">
+                            {aiUsage.totalTokens.toLocaleString()} / {aiUsage.limit.toLocaleString()} tokens
+                        </span>
+                        <span className="text-muted-foreground">
+                            {aiUsage.callCount} AI {aiUsage.callCount === 1 ? "call" : "calls"} this month
+                        </span>
+                    </div> */}
+                    {aiUsage.usagePercent >= 90 && (
+                        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+                            You&apos;re approaching your monthly AI limit. Upgrade to premium for unlimited access.
+                        </div>
+                    )}
+                </CardContent>
+                {!isPro && (
+                    <CardFooter>
+                        <Link href="/dashboard/billing" className="w-full">
+                            <Button className="w-full" variant="outline">
+                                <Zap className="mr-2 h-4 w-4" />
+                                Upgrade for unlimited AI usage
+                            </Button>
+                        </Link>
+                    </CardFooter>
+                )}
+            </Card>
         </div>
     );
 }

@@ -9,6 +9,7 @@ import {
     User,
     CreditCard,
     LayoutDashboard,
+    Construction,
 } from "lucide-react";
 import { ModeToggle } from "@/components/mode-toggle";
 import { Button } from "@/components/ui/button";
@@ -49,18 +50,21 @@ export function DashboardNavbar({ user }: DashboardNavbarProps) {
             label: "Dashboard",
             icon: LayoutDashboard,
             active: pathname === "/dashboard",
+            comingSoon: false,
         },
         {
             href: "/dashboard/uploads",
             label: "Uploads",
             icon: FileUp,
-            active: pathname === "/dashboard/uploads",
+            active: false,
+            comingSoon: true,
         },
         {
             href: "/dashboard/billing",
             label: "Billing",
             icon: CreditCard,
             active: pathname === "/dashboard/billing",
+            comingSoon: false,
         },
     ];
 
@@ -79,8 +83,25 @@ export function DashboardNavbar({ user }: DashboardNavbarProps) {
 
                 <nav className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 hidden items-center gap-1 md:flex">
                     {navLinks.map((link) => {
-                         const Icon = link.icon;
-                         return (
+                        const Icon = link.icon;
+
+                        if (link.comingSoon) {
+                            return (
+                                <span
+                                    key={link.href}
+                                    className="flex cursor-not-allowed items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground/50"
+                                >
+                                    <Icon className="h-4 w-4" />
+                                    {link.label}
+                                    <span className="ml-0.5 inline-flex items-center gap-0.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase leading-none tracking-wide text-primary">
+                                        <Construction className="h-2.5 w-2.5" />
+                                        Soon
+                                    </span>
+                                </span>
+                            );
+                        }
+
+                        return (
                             <Link
                                 key={link.href}
                                 href={link.href}
@@ -142,11 +163,13 @@ export function DashboardNavbar({ user }: DashboardNavbarProps) {
                                     Profile
                                 </Link>
                             </DropdownMenuItem>
-                            <DropdownMenuItem asChild>
-                                <Link href="/dashboard/uploads">
-                                    <FileUp className="mr-2 h-4 w-4" />
-                                    Uploads
-                                </Link>
+                            <DropdownMenuItem disabled className="opacity-50">
+                                <FileUp className="mr-2 h-4 w-4" />
+                                Uploads
+                                <span className="ml-auto inline-flex items-center gap-0.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase leading-none tracking-wide text-primary">
+                                    <Construction className="h-2.5 w-2.5" />
+                                    Soon
+                                </span>
                             </DropdownMenuItem>
                             <DropdownMenuItem asChild>
                                 <Link href="/dashboard/billing">
