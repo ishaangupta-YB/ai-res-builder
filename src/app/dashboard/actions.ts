@@ -26,6 +26,7 @@ import { redirect } from "next/navigation";
 import { generateText, Output, NoObjectGeneratedError } from "ai";
 import { getAiModel, MODEL_ID } from "@/lib/ai";
 import { logAiUsage, checkAiUsageLimit } from "@/lib/ai-usage";
+import { canCreateResume } from "@/lib/subscription";
 import {
     aiResumeExtractionSchema,
     aiResumeAnalysisSchema,
@@ -39,6 +40,12 @@ import {
 export async function createResume() {
     const session = await requireSession();
     const db = await getDb();
+
+    // Enforce free-plan resume limit
+    const check = await canCreateResume(session.user.id);
+    if (!check.allowed) {
+        redirect("/dashboard?limit=true");
+    }
 
     const [resume] = await db
         .insert(resumes)
@@ -56,6 +63,12 @@ export async function createResumeFromTemplate(
 ): Promise<void> {
     const session = await requireSession();
     const db = await getDb();
+
+    // Enforce free-plan resume limit
+    const check = await canCreateResume(session.user.id);
+    if (!check.allowed) {
+        redirect("/dashboard?limit=true");
+    }
 
     // 1. Insert the resume row with template fields
     const [resume] = await db

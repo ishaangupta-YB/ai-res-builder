@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 const optionalString = z.string().trim().max(200).optional();
-const optionalUrl = z.string().trim().max(500).url().optional().or(z.literal(""));
+const optionalUrl = z.string().trim().max(500).optional().or(z.literal(""));
 const optionalDate = z.string().max(10).optional(); // YYYY-MM-DD
 
 // ---------------------------------------------------------------------------
@@ -104,7 +104,7 @@ const referenceSchema = z.object({
     name: optionalString,
     position: optionalString,
     company: optionalString,
-    email: z.string().trim().max(200).email().optional().or(z.literal("")),
+    email: z.string().trim().max(200).optional().or(z.literal("")),
     phone: z.string().trim().max(30).optional(),
     visible: z.boolean().optional().default(true),
     displayOrder: z.number().int().optional(),
@@ -140,7 +140,7 @@ export const resumeSchema = z.object({
     city: optionalString,
     country: optionalString,
     phone: z.string().trim().max(30).optional(),
-    email: z.string().trim().max(200).email().optional().or(z.literal("")),
+    email: z.string().trim().max(200).optional().or(z.literal("")),
     linkedin: optionalUrl,
     website: optionalUrl,
 
