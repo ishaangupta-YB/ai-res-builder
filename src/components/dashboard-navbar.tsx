@@ -63,8 +63,8 @@ export function DashboardNavbar({ user }: DashboardNavbarProps) {
             href: "/dashboard/billing",
             label: "Billing",
             icon: CreditCard,
-            active: pathname === "/dashboard/billing",
-            comingSoon: false,
+            active: false,
+            comingSoon: true,
         },
     ];
 
@@ -152,12 +152,6 @@ export function DashboardNavbar({ user }: DashboardNavbarProps) {
                             </div>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem asChild>
-                                <Link href="/dashboard">
-                                    <LayoutDashboard className="mr-2 h-4 w-4" />
-                                    Dashboard
-                                </Link>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem asChild>
                                 <Link href="/dashboard/profile">
                                     <User className="mr-2 h-4 w-4" />
                                     Profile
@@ -171,11 +165,13 @@ export function DashboardNavbar({ user }: DashboardNavbarProps) {
                                     Soon
                                 </span>
                             </DropdownMenuItem>
-                            <DropdownMenuItem asChild>
-                                <Link href="/dashboard/billing">
-                                    <CreditCard className="mr-2 h-4 w-4" />
-                                    Billing
-                                </Link>
+                            <DropdownMenuItem disabled className="opacity-50">
+                                <CreditCard className="mr-2 h-4 w-4" />
+                                Billing
+                                <span className="ml-auto inline-flex items-center gap-0.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase leading-none tracking-wide text-primary">
+                                    <Construction className="h-2.5 w-2.5" />
+                                    Soon
+                                </span>
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
