@@ -238,7 +238,7 @@ export default function LandingPage() {
         <section className="border-y-2 border-foreground bg-primary py-4 overflow-hidden">
           <div className="flex whitespace-nowrap animate-[marquee_20s_linear_infinite]">
             {[...Array(10)].map((_, i) => (
-              <div key={i} className="flex items-center mx-8 text-primary-foreground font-black text-2xl uppercase italic">
+              <div key={`marquee-${i}`} className="flex items-center mx-8 text-primary-foreground font-black text-2xl uppercase italic">
                 <Zap className="mr-2 h-6 w-6 fill-current" />
                 AI POWERED
                 <span className="mx-8 text-4xl">•</span>
@@ -448,8 +448,8 @@ export default function LandingPage() {
                       "Creates fully editable resume",
                       "Preserves all sections & formatting",
                       "Redirects straight to the editor",
-                    ].map((item, i) => (
-                      <div key={i} className="flex items-start gap-3">
+                    ].map((item) => (
+                      <div key={item} className="flex items-start gap-3">
                         <div className="h-6 w-6 rounded-full border-2 border-foreground bg-secondary flex items-center justify-center shrink-0 mt-0.5">
                           <Check className="h-3 w-3 text-secondary-foreground" />
                         </div>
@@ -485,8 +485,8 @@ export default function LandingPage() {
                       "Section-by-section breakdown",
                       "Actionable improvement tips",
                       "Results cached — no redundant calls",
-                    ].map((item, i) => (
-                      <div key={i} className="flex items-start gap-3">
+                    ].map((item) => (
+                      <div key={item} className="flex items-start gap-3">
                         <div className="h-6 w-6 rounded-full border-2 border-foreground bg-primary flex items-center justify-center shrink-0 mt-0.5">
                           <Check className="h-3 w-3 text-primary-foreground" />
                         </div>

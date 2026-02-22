@@ -409,9 +409,9 @@ export function AnalysisDrawer({
                                         </h3>
                                         <ul className="space-y-2.5">
                                             {analysis.topStrengths.map(
-                                                (s, i) => (
+                                                (s) => (
                                                     <li
-                                                        key={i}
+                                                        key={s}
                                                         className="flex items-start gap-2.5 text-sm"
                                                     >
                                                         <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
@@ -432,9 +432,9 @@ export function AnalysisDrawer({
                                         </h3>
                                         <ul className="space-y-2.5">
                                             {analysis.criticalImprovements.map(
-                                                (imp, i) => (
+                                                (imp) => (
                                                     <li
-                                                        key={i}
+                                                        key={imp}
                                                         className="flex items-start gap-2.5 text-sm"
                                                     >
                                                         <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-orange-500" />
@@ -474,9 +474,9 @@ export function AnalysisDrawer({
                                         0 ? (
                                         <ul className="space-y-2">
                                             {analysis.atsCompatibility.issues.map(
-                                                (issue, i) => (
+                                                (issue) => (
                                                     <li
-                                                        key={i}
+                                                        key={issue}
                                                         className="flex items-start gap-2.5 text-sm"
                                                     >
                                                         <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-yellow-500" />
@@ -529,7 +529,7 @@ export function AnalysisDrawer({
                                                     expandedSections.has(idx);
                                                 return (
                                                     <div
-                                                        key={idx}
+                                                        key={section.name}
                                                         className={`overflow-hidden rounded-xl border transition-colors ${isExpanded
                                                             ? "bg-muted/30"
                                                             : "hover:bg-muted/20"
@@ -607,11 +607,10 @@ export function AnalysisDrawer({
                                                                                     {section.strengths.map(
                                                                                         (
                                                                                             s,
-                                                                                            i,
                                                                                         ) => (
                                                                                             <li
                                                                                                 key={
-                                                                                                    i
+                                                                                                    s
                                                                                                 }
                                                                                                 className="flex items-start gap-2 text-xs leading-snug"
                                                                                             >
@@ -641,11 +640,10 @@ export function AnalysisDrawer({
                                                                                     {section.improvements.map(
                                                                                         (
                                                                                             imp,
-                                                                                            i,
                                                                                         ) => (
                                                                                             <li
                                                                                                 key={
-                                                                                                    i
+                                                                                                    imp
                                                                                                 }
                                                                                                 className="flex items-start gap-2 text-xs leading-snug"
                                                                                             >

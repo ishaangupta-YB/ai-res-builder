@@ -70,9 +70,9 @@ export default function SignIn() {
                             { icon: Sparkles, text: "AI-powered content suggestions" },
                             { icon: Shield, text: "ATS-friendly templates" },
                             { icon: Zap, text: "Export to PDF in seconds" },
-                        ].map(({ icon: Icon, text }, i) => (
+                        ].map(({ icon: Icon, text }) => (
                             <div
-                                key={i}
+                                key={text}
                                 className="flex items-center gap-3 rounded-none border-2 border-background/20 bg-background/5 px-5 py-3 text-left backdrop-blur-sm"
                             >
                                 <div className="flex h-10 w-10 shrink-0 items-center justify-center border-2 border-primary bg-primary/20">

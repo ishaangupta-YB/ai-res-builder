@@ -121,7 +121,7 @@ export default function ExperienceSection({
                 setLocalEntry(null);
                 setEditingIndex(null);
             } else if (editingIndex !== null && editingIndex > idx) {
-                setEditingIndex(editingIndex - 1);
+                setEditingIndex((prev) => (prev !== null ? prev - 1 : null));
             }
         },
         [editingIndex, setResumeData],

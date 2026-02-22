@@ -111,7 +111,7 @@ export default function ReferencesSection({
                 setEditingIndex(null);
                 setEditCopy(null);
             } else if (editingIndex !== null && editingIndex > index) {
-                setEditingIndex(editingIndex - 1);
+                setEditingIndex((prev) => (prev !== null ? prev - 1 : null));
             }
         },
         [editingIndex, setResumeData]

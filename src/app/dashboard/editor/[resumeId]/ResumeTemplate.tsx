@@ -295,7 +295,7 @@ function SkillsBlock({ data, layout }: BlockProps) {
                 <div className="flex flex-wrap gap-1.5">
                     {data.skills.map((skill, i) => (
                         <span
-                            key={i}
+                            key={`${skill}-${i}`}
                             className="rounded-sm bg-current/10 px-1.5 py-0.5 text-[9.5px] font-semibold"
                         >
                             {skill}
@@ -314,7 +314,7 @@ function SkillsBlock({ data, layout }: BlockProps) {
                 style={{ columnRule: "none" }}
             >
                 {data.skills.map((skill, i) => (
-                    <li key={i} className="break-inside-avoid pl-2">
+                    <li key={`${skill}-${i}`} className="break-inside-avoid pl-2">
                         <span className="mr-1.5 opacity-60">•</span>
                         {skill}
                     </li>

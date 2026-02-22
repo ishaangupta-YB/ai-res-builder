@@ -142,6 +142,14 @@ export function UploadSection() {
                     ? "scale-[1.02] border-black bg-yellow-100 shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] dark:border-white dark:bg-yellow-900/30 dark:shadow-[12px_12px_0px_0px_rgba(255,255,255,1)]"
                     : "border-muted-foreground/30 bg-muted/20 hover:scale-[1.01]"
             }`}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    inputRef.current?.click();
+                }
+            }}
             onClick={() => inputRef.current?.click()}
         >
             {isUploading ? (
