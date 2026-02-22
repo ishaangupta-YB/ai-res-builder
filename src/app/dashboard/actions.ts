@@ -852,8 +852,12 @@ Extract EVERY section you can find: personal info, summary/objective, work exper
 
             extraction = output;
 
-            // 5. Log token usage
-            await logAiUsage(userId, usage, "recreate");
+            // 5. Log token usage (non-blocking — never crash the flow if logging fails)
+            try {
+                await logAiUsage(userId, usage, "recreate");
+            } catch (logErr) {
+                console.error("[recreateResumeFromPdf] Failed to log AI usage:", logErr);
+            }
 
             // 6. Cache the extraction result
             await saveCachedAiResult(
@@ -1309,8 +1313,12 @@ Finally provide:
 
         const analysis = output;
 
-        // 5. Log token usage
-        await logAiUsage(userId, usage, "analyze");
+        // 5. Log token usage (non-blocking — never crash the flow if logging fails)
+        try {
+            await logAiUsage(userId, usage, "analyze");
+        } catch (logErr) {
+            console.error("[analyzeResumePdf] Failed to log AI usage:", logErr);
+        }
 
         // 6. Cache the result (delete old cache first on forceRefresh)
         if (forceRefresh) {
@@ -1348,6 +1356,260 @@ Finally provide:
                 err instanceof Error
                     ? err.message
                     : "Failed to analyze resume. Please try again.",
+        };
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Generate a neobrutalist portfolio webpage from resume data via Gemini 3.1 Pro
+// ---------------------------------------------------------------------------
+
+export async function generatePortfolioFromResume(
+    resumeId: string,
+): Promise<{ success: boolean; html?: string; error?: string }> {
+    try {
+        const session = await requireSession();
+        const userId = session.user.id;
+        const db = await getDb();
+
+        // 1. Check AI usage limit
+        const usageCheck = await checkAiUsageLimit(userId);
+        if (!usageCheck.allowed) {
+            return {
+                success: false,
+                error: `AI usage limit reached (${usageCheck.used.toLocaleString()} / ${usageCheck.limit.toLocaleString()} tokens this month). Upgrade to premium for unlimited access.`,
+            };
+        }
+
+        // 2. Auth + ownership check — load full resume with all relations
+        const resume = await db.query.resumes.findFirst({
+            where: and(
+                eq(resumes.id, resumeId),
+                eq(resumes.userId, userId),
+            ),
+            with: {
+                workExperiences: { orderBy: (t, { asc }) => [asc(t.displayOrder)] },
+                educations: { orderBy: (t, { asc }) => [asc(t.displayOrder)] },
+                projects: { orderBy: (t, { asc }) => [asc(t.displayOrder)] },
+                awards: { orderBy: (t, { asc }) => [asc(t.displayOrder)] },
+                publications: { orderBy: (t, { asc }) => [asc(t.displayOrder)] },
+                certificates: { orderBy: (t, { asc }) => [asc(t.displayOrder)] },
+                languages: { orderBy: (t, { asc }) => [asc(t.displayOrder)] },
+                courses: { orderBy: (t, { asc }) => [asc(t.displayOrder)] },
+                resumeReferences: { orderBy: (t, { asc }) => [asc(t.displayOrder)] },
+                interests: { orderBy: (t, { asc }) => [asc(t.displayOrder)] },
+            },
+        });
+
+        if (!resume) {
+            return { success: false, error: "Resume not found" };
+        }
+
+
+
+        // 3. Serialize resume data into a clean JSON context string
+        const resumeContext = JSON.stringify(
+            {
+                name: [resume.firstName, resume.lastName].filter(Boolean).join(" "),
+                jobTitle: resume.jobTitle,
+                email: resume.email,
+                phone: resume.phone,
+                city: resume.city,
+                country: resume.country,
+                linkedin: resume.linkedin,
+                website: resume.website,
+                summary: resume.summary,
+                skills: resume.skills ?? [],
+                workExperiences: (resume.workExperiences ?? []).map((e) => ({
+                    position: e.position,
+                    company: e.company,
+                    location: e.location,
+                    startDate: e.startDate,
+                    endDate: e.endDate,
+                    description: e.description,
+                })),
+                educations: (resume.educations ?? []).map((e) => ({
+                    degree: e.degree,
+                    fieldOfStudy: e.fieldOfStudy,
+                    school: e.school,
+                    location: e.location,
+                    startDate: e.startDate,
+                    endDate: e.endDate,
+                    gpa: e.gpa,
+                    description: e.description,
+                })),
+                projects: (resume.projects ?? []).map((p) => ({
+                    title: p.title,
+                    subtitle: p.subtitle,
+                    description: p.description,
+                    link: p.link,
+                    startDate: p.startDate,
+                    endDate: p.endDate,
+                })),
+                certificates: (resume.certificates ?? []).map((c) => ({
+                    title: c.title,
+                    issuer: c.issuer,
+                    date: c.date,
+                    link: c.link,
+                    credentialId: c.credentialId,
+                    description: c.description,
+                })),
+                awards: (resume.awards ?? []).map((a) => ({
+                    title: a.title,
+                    issuer: a.issuer,
+                    date: a.date,
+                    description: a.description,
+                })),
+                publications: (resume.publications ?? []).map((p) => ({
+                    title: p.title,
+                    publisher: p.publisher,
+                    authors: p.authors,
+                    description: p.description,
+                    date: p.date,
+                    link: p.link,
+                })),
+                courses: (resume.courses ?? []).map((c) => ({
+                    name: c.name,
+                    institution: c.institution,
+                    description: c.description,
+                    date: c.date,
+                })),
+                references: (resume.resumeReferences ?? []).map((r) => ({
+                    name: r.name,
+                    position: r.position,
+                    company: r.company,
+                    email: r.email,
+                    phone: r.phone,
+                })),
+                languages: (resume.languages ?? []).map((l) => ({
+                    language: l.language,
+                    proficiency: l.proficiency,
+                })),
+                interests: (resume.interests ?? []).map((i) => i.name),
+            },
+            null,
+            2,
+        );
+
+        // 4. Build the prompt — meticulous system prompt + resume data as context
+        const systemPrompt = `You are a world-class frontend developer and creative designer specializing in NEOBRUTALIST web design. Your mission is to generate a single, self-contained, production-quality HTML portfolio page from provided resume data.
+
+## Design Philosophy — Neobrutalism
+
+Neobrutalism is a design trend that embraces rawness, boldness, and visible structure. It is the antithesis of polished minimalism. Apply these principles aggressively:
+
+### Visual Identity
+- **Thick black borders**: 3px–5px solid black on nearly every element. Cards, buttons, sections, images — all get chunky borders.
+- **Hard box-shadows**: Use offset solid shadows (e.g. \`shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]\` or \`shadow-[8px_8px_0px_0px_#000]\`). NO soft/blurred shadows — this is neobrutalism, not material design.
+- **Raw, loud colors**: Use a vibrant palette — hot pink (#FF6B9D), electric yellow (#FFE66D), lime green (#A8E6CF), sky blue (#88D8F3), coral (#FF8A5C), lavender (#C3B1E1). Backgrounds should be bold solid colors, NOT white/gray.
+- **High contrast**: Black text on bright backgrounds. White text on dark accent blocks.
+- **Visible grid structure**: Sections should look like intentionally placed blocks/cards on a page, not smooth flowing content.
+- **Playful asymmetry**: Slight rotations on cards (\`rotate-1\`, \`-rotate-2\`), offset elements, sticker-like badges.
+- **Monospace + display fonts**: Use Google Fonts like \`Space Mono\`, \`DM Mono\`, or \`JetBrains Mono\` for body text, and \`Space Grotesk\`, \`Outfit\`, or \`Unbounded\` for headings.
+- **Sticker/badge elements**: Use rounded-full pill badges for skills, tags, and labels with thick borders and bright backgrounds.
+
+### Layout
+- **Bento grid**: Use CSS Grid or Tailwind grid utilities to create a bento-box layout for the main content area (experience, projects, skills arranged in a grid of unequal cards).
+- **Full-bleed hero section**: The hero/header should be bold, take up at least 80vh, with the person's name in massive typography (\`text-6xl\` to \`text-9xl\`), job title as a chunky badge, and a brief summary.
+- **Section dividers**: Use thick horizontal rules, zigzag patterns, or colored blocks between sections — NOT subtle lines.
+- **Sticky navigation**: A top nav bar with thick border-bottom and bold section links. Smooth-scroll to sections on click.
+- **Footer**: Include contact info, social links, and a fun "Built with ☕ and code" or similar personal touch.
+
+### Animations & Interactions
+- Load GSAP from CDN: \`https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js\` and ScrollTrigger: \`https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js\`
+- **Scroll-triggered reveals**: Each section/card should animate in (fade-up, slide-in, scale-up) as the user scrolls.
+- **Staggered animations**: When multiple cards are in view, stagger their entrance (\`stagger: 0.1\`).
+- **Hover effects on cards**: Cards should \`translate\` on hover (e.g. \`hover:-translate-y-1 hover:shadow-[6px_6px_0px_0px_#000]\`), shifting their shadow to create a "lifting" effect.
+- **Marquee**: Add a horizontal scrolling marquee of skills/tech as a fun divider between sections.
+- **Smooth scroll**: \`html { scroll-behavior: smooth; }\`.
+- **Typing/scramble effect on name** (optional but impressive): Quickly scramble letters of the name on page load before resolving.
+
+### Responsiveness
+- Mobile-first: single-column stack on mobile, bento grid on \`md:\` and up.
+- Hero text sizes scale down gracefully (\`text-4xl md:text-6xl lg:text-8xl\`).
+- Cards should be full-width on mobile, grid on desktop.
+- Navigation collapses to a hamburger on mobile.
+
+## Content Mapping Rules
+
+Map resume JSON fields to portfolio sections as follows. ONLY include sections that have data (non-empty arrays, non-null fields). Skip sections entirely if there's no data for them:
+
+| Resume Field | Portfolio Section | Rendering Notes |
+|---|---|---|
+| name, jobTitle, summary | **Hero Section** | Name in massive type, job title as badge, summary as subtitle |
+| email, phone, city, country, linkedin, website | **Contact / Footer** | Render as clickable links where applicable (mailto:, tel:, https://) |
+| skills | **Skills Section** | Render as a grid of pill/sticker badges with bright random accent colors |
+| workExperiences | **Experience Section** | Cards with company, role, dates, description. Use a timeline or card grid |
+| educations | **Education Section** | Cards with school, degree, field, dates, GPA if present |
+| projects | **Projects Section** | Prominent cards with title, description, and link (if available) as a button |
+| certificates | **Certifications Section** | Compact cards or list items |
+| awards | **Awards Section** | Highlight cards |
+| publications | **Publications Section** | List with links |
+| courses | **Courses Section** | Compact list or tag cloud |
+| languages | **Languages Section** | Badges with proficiency levels |
+| interests | **Interests Section** | Fun sticker/tag cloud |
+| references | **References Section** | Simple contact cards |
+
+## Technical Requirements
+
+1. Output ONLY a single complete HTML file: \`<!DOCTYPE html>\` through \`</html>\`. No markdown fences, no explanations, no preamble.
+2. Load Tailwind CSS from CDN: \`<script src="https://cdn.tailwindcss.com"></script>\`
+3. Configure Tailwind inline with a \`<script>\` block to extend the theme with custom colors and fonts.
+4. Load Google Fonts via \`<link>\` tag.
+5. All JS at the bottom of \`<body>\` — GSAP setup, ScrollTrigger, nav behavior, etc.
+6. Use semantic HTML5 elements (\`<header>\`, \`<nav>\`, \`<main>\`, \`<section>\`, \`<footer>\`).
+7. Every piece of text content MUST come from the resume data. Do NOT invent, paraphrase, or use placeholder/lorem ipsum text.
+8. Include proper \`<title>\` and \`<meta>\` tags with the person's name and job title.
+9. Make date formatting human-readable (e.g. "Jan 2023 — Present", not "2023-01-01").`;
+
+        const userPrompt = `Make a neobrutalist webpage, make it extremely creative, as far as possible, push the limits. Add smooth scroll animations, add fancy colors and tailwind css styles. Make it responsive.
+
+Here is the resume data to use:
+
+\`\`\`json
+${resumeContext}
+\`\`\`
+
+Remember: output ONLY the raw HTML file, nothing else. Every word of content must come from the resume data above.`;
+
+        // 5. Call Gemini 3.1 Pro via AI Gateway
+        const model = await getAiModel();
+        const { text, usage } = await generateText({
+            model,
+            system: systemPrompt,
+            prompt: userPrompt,
+            maxOutputTokens: 32000,
+            maxRetries: 1,
+        });
+
+        // 7. Extract clean HTML (strip any accidental markdown code fences)
+        let html = text.trim();
+        // Remove ```html ... ``` or ``` ... ``` wrappers if model added them
+        html = html.replace(/^```(?:html)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
+
+        if (!html.toLowerCase().includes("<!doctype html") && !html.toLowerCase().startsWith("<html")) {
+            return {
+                success: false,
+                error: "AI did not return a valid HTML page. Please try again.",
+            };
+        }
+
+        // 8. Log usage ONLY after confirming valid result (non-blocking)
+        try {
+            await logAiUsage(userId, usage, "portfolio");
+        } catch (logErr) {
+            console.error("[generatePortfolioFromResume] Failed to log AI usage:", logErr);
+        }
+
+        return { success: true, html };
+    } catch (err) {
+        console.error("[generatePortfolioFromResume] error:", err);
+        return {
+            success: false,
+            error:
+                err instanceof Error
+                    ? err.message
+                    : "Failed to generate portfolio. Please try again.",
         };
     }
 }

@@ -39,6 +39,7 @@ import CoursesSection from "./sections/CoursesSection";
 import ReferencesSection from "./sections/ReferencesSection";
 import InterestsSection from "./sections/InterestsSection";
 import PreviewModal from "./PreviewModal";
+import PortfolioModal from "./PortfolioModal";
 
 /** Map section key -> React component */
 const SECTION_COMPONENTS: Record<
@@ -136,6 +137,7 @@ export default function ResumeEditor({ resumeToEdit }: ResumeEditorProps) {
     const [showSmResumePreview, setShowSmResumePreview] = useState(false);
     const [addContentOpen, setAddContentOpen] = useState(false);
     const [previewOpen, setPreviewOpen] = useState(false);
+    const [portfolioOpen, setPortfolioOpen] = useState(false);
 
     // Derive preview settings from resumeData (persisted to DB via auto-save)
     const previewSettings: PreviewSettings = useMemo(
@@ -409,6 +411,8 @@ export default function ResumeEditor({ resumeToEdit }: ResumeEditorProps) {
                 isSaving={isSaving}
                 hasUnsavedChanges={hasUnsavedChanges}
                 lastSaveError={lastSaveError}
+                onGeneratePortfolio={() => setPortfolioOpen(true)}
+                resumeId={resumeData.id}
             />
 
             {/* Modals */}
@@ -423,6 +427,12 @@ export default function ResumeEditor({ resumeToEdit }: ResumeEditorProps) {
                 onOpenChange={setPreviewOpen}
                 resumeData={resumeData}
                 previewSettings={previewSettings}
+            />
+            <PortfolioModal
+                open={portfolioOpen}
+                onOpenChange={setPortfolioOpen}
+                resumeId={resumeData.id ?? ""}
+                resumeTitle={resumeData.title}
             />
         </div>
     );

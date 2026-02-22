@@ -2,7 +2,7 @@ import { createAiGateway } from "ai-gateway-provider";
 import { createUnified } from "ai-gateway-provider/providers/unified";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 
-const MODEL_ID = "google-ai-studio/gemini-3-flash-preview";
+const MODEL_ID = "google-ai-studio/gemini-3.1-pro-preview-20260219";
 
 let cachedModel: ReturnType<ReturnType<typeof createAiGateway>> | null = null;
 

@@ -16,7 +16,7 @@ const FREE_TIER_TOKEN_LIMIT = 50_000;
 export async function logAiUsage(
     userId: string,
     usage: { inputTokens?: number; outputTokens?: number; totalTokens?: number },
-    featureType: "enhance" | "recreate" | "analyze",
+    featureType: "enhance" | "recreate" | "analyze" | "portfolio",
 ) {
     const db = await getDb();
     await db.insert(aiUsageLogs).values({

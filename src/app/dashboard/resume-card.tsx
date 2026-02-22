@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { formatDistanceToNow } from "date-fns";
-import { Edit, MoreVertical, Printer, Trash2 } from "lucide-react";
+import { Edit, MoreVertical, Printer, Sparkles, Trash2 } from "lucide-react";
 import { useReactToPrint } from "react-to-print";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,6 +36,7 @@ import {
     RESUME_PRINT_PAGE_STYLE,
     getPreviewFontFamilyCss,
 } from "./editor/[resumeId]/previewConfig";
+import PortfolioModal from "./editor/[resumeId]/PortfolioModal";
 
 interface ResumeCardProps {
     resume: ResumeServerData;
@@ -45,6 +46,7 @@ export function ResumeCard({ resume }: ResumeCardProps) {
     const router = useRouter();
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [portfolioOpen, setPortfolioOpen] = useState(false);
     const printRef = useRef<HTMLDivElement>(null);
     const previewRef = useRef<HTMLDivElement>(null);
     const [cardWidth, setCardWidth] = useState(300);
@@ -159,6 +161,12 @@ export function ResumeCard({ resume }: ResumeCardProps) {
                                 Print / Save PDF
                             </DropdownMenuItem>
                             <DropdownMenuItem
+                                onClick={() => setPortfolioOpen(true)}
+                            >
+                                <Sparkles className="mr-2 h-4 w-4" />
+                                Generate Portfolio
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
                                 className="text-destructive focus:text-destructive"
                                 onClick={() => setShowDeleteDialog(true)}
                             >
@@ -199,6 +207,13 @@ export function ResumeCard({ resume }: ResumeCardProps) {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
+            <PortfolioModal
+                open={portfolioOpen}
+                onOpenChange={setPortfolioOpen}
+                resumeId={resume.id}
+                resumeTitle={resume.title ?? undefined}
+            />
         </>
     );
 }
